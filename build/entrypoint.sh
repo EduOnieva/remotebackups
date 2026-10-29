@@ -75,7 +75,8 @@ log_info "SSH configuration completed"
 # Export environment variables securely
 echo "export REMOTE_USER='$REMOTE_USER'" > /etc/environment
 echo "export REMOTE_HOST='$REMOTE_HOST'" >> /etc/environment
-echo "export REMOTE_API_TOKEN='$REMOTE_API_TOKEN'" >> /etc/environment
+# Optional: only the TrueNAS status endpoint needs it, so an unset token must not abort startup under set -u
+echo "export REMOTE_API_TOKEN='${REMOTE_API_TOKEN:-}'" >> /etc/environment
 echo "export ROUTES_FILE='$ROUTES_FILE'" >> /etc/environment
 echo "export SSH_KEY_FILE='$SSH_KEY_FILE'" >> /etc/environment
 chmod 644 /etc/environment
