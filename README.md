@@ -1,511 +1,260 @@
-# Docker Rsync with Tailscale Integration
+# remotebackups
 
-**This is a fork and enhanced version of [insrch/rsync](https://hub.docker.com/r/insrch/rsync)**
+Scheduled rsync backups of your home-server folders to another host, with a web UI.
 
-Dockerhub page: https://hub.docker.com/r/insrch/rsync
+One container. Mount the folders, point it at a host you can SSH into, and it keeps a copy
+there: on a schedule, or when you press **Run**. The destination can be anything with `sshd`
+and `rsync`: a NAS (TrueNAS gets extra status), a second server at a friend's place reached
+through Tailscale, or a machine on your LAN.
 
-## Overview
+- **Scheduled and manual runs.** A cron expression for the schedule, a Run button for now,
+  and a *Run with delete* button when you want the backup to drop files you deleted locally.
+- **Stop.** A running backup can be stopped from the UI; rsync keeps partial files and the
+  next run continues where it stopped.
+- **Live log and history.** Every run has its own log, streamed live while it runs and kept
+  for 40 days with what happened to each folder: files, bytes, exit codes explained.
+- **Honest status.** `/healthz` for Docker, `/api/status` for your dashboards, and the SSH
+  login is probed every five minutes so you see a sleeping NAS before a run fails.
+- **Safe defaults.** Key authentication, host keys pinned on first use, rsync and ssh never
+  see the application's secrets, and `--delete` is never part of a scheduled run.
+- **TrueNAS SCALE aware.** Optional alert count and free space per pool from the TrueNAS API,
+  in the same `/api/pool_status` shape as before.
 
-This project is an enhanced version of the original `insrch/rsync` Docker image, now featuring Tailscale integration, a web management interface, and JSON-based route configuration. The project includes a containerized test suite with an enforced coverage threshold.
+## Quick start
 
-**Key Enhancements:**
-- 🔗 **Tailscale VPN Integration** - Secure networking for remote backups
-- 🌐 **Web Management Interface** - Monitor logs and trigger syncs via browser
-- 📄 **JSON Route Configuration** - Define multiple backup routes in a single file
-- 🔒 **Enhanced SSH Security** - Improved connection handling and error reporting
-- 📊 **Real-time Monitoring** - Live sync progress and detailed logging
-- 🎯 **Multi-route Support** - Backup multiple directories in one operation
-- 🧪 **Comprehensive Testing** - Containerized pytest suite with an enforced coverage threshold
+1. Create a folder for the container's state and put your SSH private key in it:
 
-Instead of syncing a single remote directory, this version allows you to define multiple local-to-remote backup routes using a JSON configuration file, all accessible through a user-friendly web interface.
+   ```bash
+   mkdir -p remotebackups/config/ssh
+   cp ~/.ssh/id_ed25519 remotebackups/config/ssh/
+   ```
 
-## Project Status
+   One key in `config/ssh` is picked up automatically. The matching public key goes into the
+   destination user's `authorized_keys` (on TrueNAS: the user's *Public SSH Key* field).
 
-✅ **Production Ready** - Core functionality tested and stable  
-✅ **Comprehensive Testing** - Containerized pytest suite with an enforced coverage threshold  
-✅ **Container-based Testing** - No local setup required for development  
-✅ **Multi-stage Docker Build** - Optimized production and testing images  
-✅ **Real File Operations Testing** - Integration tests with actual file I/O  
-✅ **Security Testing** - Input validation and injection prevention  
-🔄 **Continuous Integration** - Test automation and coverage monitoring
+2. Save a compose file next to it. For a destination you can reach directly:
 
-## Features
+   ```yaml
+   services:
+     remotebackups:
+       image: eduonieva/remotebackups:latest
+       container_name: remotebackups
+       restart: unless-stopped
+       stop_grace_period: 30s
+       ports:
+         - "8080:8080"
+       volumes:
+         - ./config:/config
+         - /srv/documents:/data/documents:ro
+         - /srv/photos:/data/photos:ro
+       environment:
+         - REMOTE_HOST=192.168.1.20
+         - REMOTE_USER=backup
+         - TZ=Europe/Madrid
+   ```
 
-- **Tailscale VPN Integration** - Secure, encrypted connections to remote servers
-- **Web Management Interface** - Monitor sync status and logs via browser (port 2222)
-- **JSON Route Configuration** - Define multiple backup routes in `/backup_routes.json`
-- **Real-time Logging** - Detailed sync progress and error reporting
-- **Manual Sync Triggers** - Start backups on-demand through web interface
-- **Enhanced SSH Security** - Automatic host key verification bypass for VPN environments
-- **Multi-route Processing** - Backup multiple directories in a single operation
-- **Lightweight Alpine Base** - Minimal resource usage with essential tools (rsync, jq, python3)
-- **File Locking** - Prevents concurrent sync operations
+   For a destination reached through Tailscale, use
+   [`docker-compose.tailscale.yaml`](docker-compose.tailscale.yaml): the app runs behind the
+   official Tailscale sidecar, and the UI is then reachable only from your tailnet.
 
-## Installation
+3. `docker compose up -d`. The first start writes a commented `config/config.yaml`. Add the
+   folders to back up and they are picked up before the next run, no restart needed:
 
-### Docker Compose Setup (Recommended)
+   ```yaml
+   folders:
+     - source: /data/documents
+       destination: /mnt/backup/documents
+     - source: /data/photos
+       destination: /mnt/backup/photos
+   ```
 
-Edit `docker-compose.yaml` with your specific values:
+4. Open `http://<host>:8080`, press **Run**, watch the log.
+
+## Configuration
+
+Settings come from three layers: built-in defaults, then `/config/config.yaml`, then
+environment variables. The recommended split is connection and secrets in the environment,
+folders and rsync options in the file. `remotebackups print-config --redact` shows the result.
+
+### Environment variables
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `REMOTE_HOST` | required | Destination host: IP, DNS or MagicDNS name |
+| `REMOTE_USER` | required | SSH user on the destination |
+| `REMOTE_PORT` | `22` | SSH port |
+| `SSH_KEY` | auto | Key file name under `/config/ssh`, or an absolute path. Auto-detected when exactly one key is there |
+| `SSH_PASSWORD` | | Password authentication instead of a key. Works, but a key is the recommendation |
+| `SSH_HOST_KEY_POLICY` | `tofu` | `tofu` pins the host key on first use and refuses changes; `strict` requires a known key; `insecure` ignores host keys |
+| `CRON_SCHEDULE` | `30 2 * * 1` | When scheduled runs happen. Empty disables them |
+| `SCHEDULED_RSYNC_TIMEOUT` | `3600` | Seconds of rsync inactivity before a *scheduled* run gives up on a folder. `0` disables. Manual runs never time out |
+| `RSYNC_EXTRA_OPTIONS` | | Extra rsync flags for every folder, e.g. `--bwlimit=20m` |
+| `TRUENAS_API_KEY` | | Enables the TrueNAS status card and `/api/pool_status` details |
+| `TRUENAS_HOST` | `REMOTE_HOST` | TrueNAS address when it differs from the SSH host |
+| `TRUENAS_POOL_ALIASES` | | Rename pools in the response: `tank:disk-0,vault:disk-1` |
+| `TRUENAS_VERIFY_TLS` | `false` | Verify the TrueNAS certificate (home NAS boxes usually use a self-signed one) |
+| `TRUENAS_ENABLED` | `auto` | `auto` means on when an API key is set |
+| `HISTORY_KEEP_DAYS` | `40` | Run records and logs older than this are deleted |
+| `UI_DARK_THEME` | `true` | |
+| `WEB_PORT` | `8080` | Only needed when another service in the same network namespace uses 8080 |
+| `TZ` | `Etc/UTC` | Schedule and log timestamps |
+| `LOG_LEVEL` | `INFO` | |
+| `FILE__<VAR>` | | Read `<VAR>` from a file, e.g. `FILE__TRUENAS_API_KEY=/run/secrets/truenas` |
+
+### config.yaml
+
+Every key is optional; the file written on first start lists them all with comments.
 
 ```yaml
-services:
-  tailscale: 
-    container_name: tailscale-backup
-    hostname: your-hostname  # Change to your desired hostname
-    image: tailscale/tailscale:stable 
-    ports:
-      - "2222:80"  # Web interface port
-    environment:
-      - TS_AUTHKEY=your_tailscale_auth_key_here  # Get from Tailscale admin console
-      - TS_STATE_DIR=/var/lib/tailscale
-      - TS_USERSPACE=false
-    volumes: 
-      - ./config/tailscale/state:/var/lib/tailscale
-      - ./config/tailscale/config:/config
-    cap_add:
-      - net_admin
-      - sys_module
-    devices:
-      - /dev/net/tun:/dev/net/tun
-    restart: unless-stopped
-    networks:
-      backup:
-        ipv4_address: 192.168.6.10
-
-  rsync-backup:
-    container_name: rsync-backup
-    build:
-      context: .
-      dockerfile: build/Dockerfile
-    volumes:
-      - ./config:/config  # Config and logs directory
-      - ~/.ssh:/mnt/ssh_keys:ro  # SSH keys (read-only)
-      - /path/to/your/data1:/data/source1  # Local data to backup
-      - /path/to/your/data2:/data/source2  # More local data
-    restart: unless-stopped
-    network_mode: service:tailscale
-    depends_on:
-      - tailscale
-    environment:
-      - REMOTE_USER=your_remote_username  # SSH username on remote server
-      - REMOTE_HOST=100.x.x.x  # Tailscale IP of remote server
-      - CRON_SCHEDULE=30 2 * * 1  # Weekly on Monday at 2:30 AM
-      - SSH_KEY_FILE=id_rsa  # SSH key filename in ~/.ssh/
-      - TZ=Europe/Madrid  # Your timezone
-      - ROUTES_FILE=/backup_routes.json
-    
-networks:
-  backup:
-    ipam:
-      config:
-        - subnet: 192.168.6.0/24
+remote:
+  host_key_policy: tofu
+schedule:
+  cron: "30 2 * * 1"
+  rsync_timeout: 3600
+rsync:
+  options: ["-a", "-v", "-z", "--partial", "--stats"]
+  preserve_ownership: false   # see "TrueNAS and other non-root destinations"
+  extra_options: []
+  excludes: ["*.Trash*", "lost+found", "System Volume Information", ".DS_Store", "Thumbs.db", "desktop.ini", ".venv"]
+folders:
+  - source: /data/documents          # path inside the container
+    destination: /mnt/backup/documents
+    name: documents                  # optional; defaults to the last part of source
+    excludes: ["*.tmp"]              # added to rsync.excludes
+    extra_options: []
+    allow_delete: true               # false: "Run with delete" skips --delete for this folder
+    enabled: true
+truenas:
+  pool_aliases: {tank: disk-0}
+  cache_seconds: 30
+ui:
+  dark_theme: true
+history:
+  keep_days: 40
+  max_log_bytes: 52428800
 ```
 
-## Testing
+Mistakes are reported with their path, for example
+`folders[1].source: source must be an absolute path (got 'data/photos')`, and the container
+exits so you notice. `remotebackups check-config` validates without starting anything.
 
-### Container-Based Testing Infrastructure
+### How a run works
 
-The test suite runs inside a Docker container, so no local Python setup is required. The coverage threshold is enforced by `pytest.ini`.
-
-#### Test Suite Overview
-
-- **Coverage gate** - The run fails when coverage drops below the threshold in `pytest.ini`
-- **Container-based execution** - No local Python installation needed
-- **Multi-stage Docker builds** - Optimized for both production and testing
-- **Real file operations** - Actual I/O testing with temporary files
-- **Advanced coverage targeting** - Specific tests for edge cases
-
-#### Quick Start
-
-```bash
-# Run all tests with coverage
-docker compose --profile testing run --rm rsync-backup-test python -m pytest tests/ --cov=src --cov-report=term-missing
-
-# Run specific test categories
-docker compose --profile testing run --rm rsync-backup-test python -m pytest tests/unit/
-docker compose --profile testing run --rm rsync-backup-test python -m pytest tests/integration/
-
-# Interactive debugging shell
-docker compose --profile testing run --rm rsync-backup-test bash
-```
-
-#### Test Categories
-
-**Unit Tests**
-- Log parsing and error summarization
-- Path validation and security checks
-- Web handler request/response processing
-- Real file operations with temporary files
-- Sync status detection algorithms
-- TrueNAS DDP client against a scripted WebSocket
-
-**Integration Tests**
-- SSH connectivity and authentication
-- Complete backup workflow simulation
-- Web server file operations
-- End-to-end sync process testing
-- Advanced coverage targeting
-
-#### Test Infrastructure Features
-
-**Multi-stage Docker Build**
-```dockerfile
-# Shared base - pinned Alpine with rsync, ssh, jq and python3
-FROM alpine:3.24.3 AS base
-
-# Production stage - entrypoint, sync script and web server only
-FROM base AS production
-
-# Testing stage - adds pinned pytest, coverage and mocking tools plus the tests
-FROM base AS testing
-```
-
-**Test Service Configuration**
-```yaml
-rsync-backup-test:
-  build:
-    context: .
-    dockerfile: build/Dockerfile
-    target: testing
-  volumes:
-    # Source and tests are mounted, so edits are picked up without a rebuild
-    - ./src:/src
-    - ./tests:/tests
-    - ./pytest.ini:/pytest.ini
-  environment:
-    - PYTHONPATH=/src
-  profiles:
-    - testing
-```
-
-#### Coverage Analysis
-
-**Covered Areas**
-- ✅ HTTP request handling and routing
-- ✅ Log file reading and parsing
-- ✅ Error summarization and truncation
-- ✅ Sync status detection and color coding
-- ✅ Security input validation
-- ✅ File I/O operations and error handling
-- ✅ JSON configuration parsing
-- ✅ SSH connectivity validation
-- ✅ TrueNAS status client (handshake, authentication, alerts, pools, error paths)
-
-**Remaining Uncovered**
-- Server startup and socket initialization
-- Some exception paths in file operations  
-- Configuration edge cases
-- System-level integration points
-
-#### Real File Operations Testing
-
-The test suite includes actual file I/O operations:
-- Temporary directory creation and cleanup
-- Large file generation (>500MB) for truncation testing
-- Concurrent file access simulation
-- File permission and encoding tests
-- Log rotation and clearing operations
-
-#### Advanced Testing Features
-
-**Mocking and Fixtures**
-```python
-@pytest.fixture
-def mock_sync_environment():
-    """Global fixture providing mocked sync environment."""
-    with patch.multiple(
-        'web_server',
-        LOG_FILE='/fake/sync.log',
-        subprocess=Mock()
-    ):
-        yield
-```
-
-**Container Detection**
-```python
-def is_running_in_container():
-    """Detect if tests are running in Docker container."""
-    return os.path.exists('/.dockerenv') or 'docker' in os.environ.get('container', '')
-```
-
-**Performance Testing**
-- Large file handling (500MB+ log files)
-- Concurrent operation simulation
-- Memory usage optimization
-- File system stress testing
-
-#### Running Tests
-
-**All Tests with Coverage**
-```bash
-docker compose --profile testing run --rm rsync-backup-test \
-  python -m pytest tests/ --cov=src --cov-report=term-missing -v
-```
-
-**Specific Test Files**
-```bash
-# Unit tests only
-docker compose --profile testing run --rm rsync-backup-test \
-  python -m pytest tests/unit/ -v
-
-# Integration tests only  
-docker compose --profile testing run --rm rsync-backup-test \
-  python -m pytest tests/integration/ -v
-
-# Advanced coverage tests
-docker compose --profile testing run --rm rsync-backup-test \
-  python -m pytest tests/integration/test_advanced_coverage.py -v
-```
-
-### JSON Routes Configuration
-
-Edit `backup_routes.json` (maps local paths to remote destinations):
-
-```json
-{
-  "/data/source1/documents": "/mnt/backup/documents",
-  "/data/source1/photos": "/mnt/backup/photos",
-  "/data/source2/projects": "/mnt/backup/projects"
-}
-```
-
-## Environment Variables
-
-| Variable        | Description                                           | Example Value           | Required |
-| --------------- | ----------------------------------------------------- | ----------------------- | -------- |
-| `TS_AUTHKEY`    | Tailscale authentication key                         | `tskey-auth-xxx...`     | Yes      |
-| `REMOTE_USER`   | SSH username on remote server                        | `your_remote_username`  | Yes      |
-| `REMOTE_HOST`   | Remote server Tailscale IP address                   | `100.x.x.x`            | Yes      |
-| `ROUTES_FILE`   | Path to JSON file defining backup routes             | `/backup_routes.json` | Yes      |
-| `CRON_SCHEDULE` | Cron expression for automated sync schedule          | `30 2 * * 1` (weekly)   | Yes      |
-| `SSH_KEY_FILE`  | SSH private key filename                              | `id_rsa`               | Yes      |
-| `TZ`            | Timezone for container                                | `Europe/Madrid`         | No       |
-| `SCHEDULED_RSYNC_TIMEOUT` | Seconds of rsync inactivity before a scheduled run drops a route (`0` disables). Manual runs from the web interface never time out | `3600` (default) | No |
-| `TRUENAS_DISABLED` | Set to `true` when the remote is not a TrueNAS. `/api/pool_status` then returns only the sync error count and no API key is needed | `false` (default) | No |
-| `REMOTE_API_TOKEN` | TrueNAS API key used to read alerts and pool free space | `1-xxxx...` | Unless `TRUENAS_DISABLED=true` |
-| `TRUENAS_POOL_ALIASES` | Comma-separated `pool:alias` pairs that rename pools in `/api/pool_status`, so dashboards keep stable keys. Unlisted pools keep their TrueNAS name | `tank:disk-0,vault:disk-1` | No |
-| `TRUENAS_VERIFY_TLS` | Verify the TrueNAS HTTPS certificate. Off by default because home NAS boxes usually use a self-signed one | `false` (default) | No |
-
-### Getting Started
-
-1. **Get Tailscale Auth Key**: Visit [Tailscale Admin Console](https://login.tailscale.com/admin/settings/keys) to generate an auth key
-2. **Setup SSH Keys**: Ensure your SSH public key is authorized on the remote server
-3. **Configure Routes**: Create `backup_routes.json` with your backup mappings  
-4. **Update Variables**: Edit `docker-compose.yaml` with your specific values
-5. **Start Services**: Run `docker-compose up --build -d`
-
-## Web Interface
-
-Access the web management interface at `http://your_host:2222`
-
-Features:
-- 📊 **Real-time Sync Logs** - Monitor backup progress and errors
-- ▶️ **Manual Sync Trigger** - Start backups on-demand
-- 🔄 **Auto-refresh** - Live updates every 30 seconds
-- 📄 **Log Management** - Clear logs when needed
-- 💾 **System Status** - Log file size and the state of the last run (Running, Completed, Completed with errors, Aborted)
-- ⚠️ **Run With Delete** - A manual run that also passes `--delete` to rsync, so files removed locally disappear from the backup. Asks for confirmation first
-- 🗄️ **TrueNAS Status** - `/api/pool_status` returns the sync error count plus the TrueNAS alert count and free space per pool (unless `TRUENAS_DISABLED=true`)
-
-## Usage Examples
-
-### SSH Key Setup
-
-1. Generate SSH key pair on your local machine:
-```bash
-ssh-keygen -t ed25519 -f ~/.ssh/backup_key
-```
-
-2. Copy public key to remote server:
-```bash
-ssh-copy-id -i ~/.ssh/backup_key.pub user@remote_host
-```
-
-3. Place the private key in your config directory as `id_rsa`
-
-### Directory Structure
+For each enabled folder, in order, one `rsync` is started over SSH:
 
 ```
-your_project/
-├── docker-compose.yaml          # Template configuration (tracked)
-├── docker-compose.override.yml  # Your real values, merged automatically (gitignored)
-├── build/
-│   ├── Dockerfile
-│   └── entrypoint.sh
-├── src/
-│   ├── backup_routes.json       # Your backup route mappings
-│   ├── sync_script.sh
-│   └── web_server.py
-└── config/
-    ├── logs/                    # Sync and web server logs
-    │   ├── sync.log
-    │   └── web_server.log
-    └── tailscale/
-        ├── state/               # Tailscale connection state
-        └── config/
+rsync -a -v -z --partial --stats --no-owner --no-group [--delete] [--timeout=N] --exclude=... \
+  -e "ssh -F /run/remotebackups/ssh/config" /data/documents/ backup@host:/mnt/backup/documents/
 ```
 
-### Volume Mapping Examples
+- `--delete` is added only to a manual *Run with delete*, and only for folders with
+  `allow_delete: true`. Scheduled runs never delete.
+- `--timeout` is added only to scheduled runs, so a NAS that fell asleep cannot hold a
+  scheduled run forever, while a manual run you are watching is left alone.
+- **Stop** sends SIGTERM to the running rsync and skips the remaining folders. `--partial`
+  keeps what was transferred; the next run resumes.
+- Only one run at a time. A second start is refused, and a scheduled run that finds another
+  run active is skipped with a warning.
 
-Update the volumes in `docker-compose.yaml` to match your setup:
+## The web UI and API
 
-```yaml
-volumes:
-  # Configuration and logs (required)
-  - ./config:/config
-  
-  # SSH keys (required, read-only)
-  - ~/.ssh:/mnt/ssh_keys:ro
-  
-  # Your local data to backup (customize these paths)
-  - /home/user/Documents:/data/documents
-  - /home/user/Pictures:/data/pictures
-  - /media/external-drive:/data/external
-  - /var/lib/docker/volumes:/data/docker-volumes
-```
+The page shows the current state, the last and next run, whether the destination is
+reachable, the TrueNAS card when enabled, the live log of the running backup, the history of
+runs and the configured folders. Buttons: **Run**, **Run with delete**, **Stop**, **Clear history**.
+
+| Endpoint | What it returns |
+|---|---|
+| `GET /healthz` | 200 while the scheduler loop is alive, 503 otherwise (for Docker's HEALTHCHECK) |
+| `GET /api/status` | State, current and last run, next scheduled run, remote reachability |
+| `GET /api/folders` | The configured folders and whether each source exists |
+| `POST /api/runs` | Start a run; body `{"delete": false, "folders": ["documents"]}` is optional. 409 while a run is active |
+| `POST /api/runs/current/cancel` | Stop the active run |
+| `GET /api/runs?limit=20` | Run history, newest first |
+| `GET /api/runs/{id}` | One run with its per-folder results and rsync statistics |
+| `GET /api/runs/{id}/log?offset=0` | The log as text, in chunks |
+| `GET /api/runs/{id}/log/stream` | The log as Server-Sent Events, live while the run is going |
+| `DELETE /api/runs` | Delete all history |
+| `GET /api/config` | The effective configuration, secrets masked |
+| `GET /api/pool_status` | `{"sync_errors": N, "alerts": M, "<pool>": "X TB"}`, or `{"sync_errors": N, "truenas": "disabled"}` |
+| `GET /docs` | Interactive API documentation |
+
+The UI has no login. Keep it where only you can reach it: on your tailnet (the Tailscale
+compose file does exactly that), on your LAN, or behind your reverse proxy's authentication.
+
+## Networking
+
+- **Tailscale sidecar** ([`docker-compose.tailscale.yaml`](docker-compose.tailscale.yaml)):
+  the official `tailscale/tailscale` container joins your tailnet, and remotebackups shares
+  its network namespace. Set `REMOTE_HOST` to the destination's tailnet IP or MagicDNS name.
+  The UI is at `http://<node-name>:8080` from any device on the tailnet and is not published
+  on the LAN. Tailscale Serve can put HTTPS in front of it if you want.
+- **Host already on the tailnet or a VPN**: use the plain compose file; the container reaches
+  whatever the host can reach.
+- **LAN**: the plain compose file with the destination's LAN address.
+
+## TrueNAS and other non-root destinations
+
+Follow the TrueNAS SCALE documentation: enable the SSH service, create a user with a home
+directory on a dataset, shell access and *SSH Access*, paste your public key in its
+*Public SSH Key* field, and give it write permission on the destination dataset.
+
+A user that is not root cannot change file ownership, so with rsync's plain `-a` every run
+would end with "partial transfer due to error" (exit 23). That is why
+`rsync.preserve_ownership` defaults to `false`, which adds `--no-owner --no-group`. Set it to
+`true` only when the destination user is root.
+
+With `TRUENAS_API_KEY` set, the UI shows the NAS alert count and the free space of each
+pool, and `/api/pool_status` carries the same numbers for dashboards. Pool names can be
+renamed with `TRUENAS_POOL_ALIASES` so dashboards keep stable keys.
+
+## Operations
+
+- **Logs.** The application logs to stdout (`docker logs remotebackups`); the compose files
+  rotate them through Docker. Run logs are files under `config/runs/`, one per run, deleted
+  after `HISTORY_KEEP_DAYS`.
+- **State.** Everything is under `/config`: `config.yaml`, `ssh/` (your key and the pinned
+  `known_hosts`), `runs/`. Back that folder up and the container is disposable.
+- **Changed destination host key.** With the default `tofu` policy a changed key fails the
+  connection and the status says so. If the server was reinstalled, delete its line from
+  `config/ssh/known_hosts`.
+- **Updating.** `docker compose pull && docker compose up -d`. Tags: `latest` and `X.Y.Z`
+  for releases, `develop` for the current main branch, on Docker Hub
+  (`eduonieva/remotebackups`) and GHCR (`ghcr.io/eduonieva/remotebackups`), for amd64 and arm64.
+- **CLI.** `docker exec remotebackups remotebackups check-config | print-config --redact |
+  print-example-config | run-once [--delete] [--folder NAME]`.
+
+## Migrating from version 1 (rsync-tailscale-docker)
+
+Version 2 is a rewrite; the v1 code is tagged `v1.2.0`. What changes for a v1 deployment:
+
+- The routes JSON becomes `folders:` in `config/config.yaml`; `ROUTES_FILE`, `SSH_KEY_FILE`
+  and `/mnt/ssh_keys` are gone. Put the key in `config/ssh/` instead.
+- `REMOTE_API_TOKEN` is now `TRUENAS_API_KEY`; `TRUENAS_DISABLED` is gone (TrueNAS is on
+  when a key is set). `TRUENAS_POOL_ALIASES` is unchanged.
+- The UI moved from port 80 to 8080 inside the container; update your port mapping.
+- rsync runs with `--no-owner --no-group` unless `rsync.preserve_ownership: true`.
+- `/api/pool_status` keeps its shape. `sync_errors` now counts the folders that failed in
+  the last run instead of error lines in a log file.
+- Run logs are per run under `config/runs/`; the old `sync.log` is not read.
 
 ## Development
 
-### Project Structure
-
-```
-rsync-tailscale-docker/
-├── README.md                        # This documentation
-├── docker-compose.yaml              # Main service configuration
-├── backup_routes.json               # Backup route mappings
-├── build/
-│   ├── Dockerfile                   # Multi-stage container build
-│   └── entrypoint.sh               # Container startup script
-├── src/
-│   ├── sync_script.sh              # Main backup orchestration
-│   └── web_server.py               # Web interface, API and TrueNAS status client
-└── tests/                           # Test suite (runs in the testing image)
-    ├── conftest.py                  # Global test fixtures and configuration
-    ├── unit/                        # Unit tests
-    │   ├── test_log_parsing.py      # Log processing and error detection
-    │   ├── test_path_validation.py  # Security and input validation
-    │   ├── test_real_file_operations.py # Actual file I/O operations
-    │   ├── test_truenas.py          # TrueNAS DDP client
-    │   └── test_web_handlers.py     # HTTP endpoint testing
-    └── integration/                 # Integration tests
-        ├── test_advanced_coverage.py # Advanced edge case coverage
-        ├── test_e2e_workflow.py     # End-to-end workflow simulation
-        ├── test_real_file_integration.py # Real file system integration
-        ├── test_ssh_connection.py   # SSH connectivity validation
-        └── test_sync_process.py     # Complete sync process testing
-```
-
-### Contributing Guidelines
-
-1. **Testing First**: All new features must include comprehensive tests
-2. **Container Development**: Use Docker for consistent development environment
-3. **Coverage Maintenance**: Keep the suite above the threshold set in `pytest.ini`
-4. **Real File Testing**: Include actual file operations in integration tests
-5. **Security Focus**: Validate all inputs and test injection prevention
-
-### Development Workflow
-
 ```bash
-# 1. Set up development environment
-git clone <repository>
-cd rsync-tailscale-docker
-
-# 2. Run tests to ensure everything works
-docker compose --profile testing run --rm rsync-backup-test \
-  python -m pytest tests/ --cov=src --cov-report=term-missing
-
-# 3. Make changes to source code
-# Edit files in src/ directory
-
-# 4. Add tests for new functionality
-# Add tests in tests/unit/ or tests/integration/
-
-# 5. Run specific tests during development
-docker compose --profile testing run --rm rsync-backup-test \
-  python -m pytest tests/unit/test_your_new_test.py -v
-
-# 6. Run full test suite before committing
-docker compose --profile testing run --rm rsync-backup-test \
-  python -m pytest tests/ --cov=src --cov-report=term-missing
-
-# 7. Interactive debugging when needed
-docker compose --profile testing run --rm rsync-backup-test bash
+make install           # uv sync
+make check             # lock check, ruff, mypy --strict, unit and web tests (coverage gate 85 %)
+make build             # docker build -t remotebackups:dev .
+make test-integration  # real sshd + the image under test, then a docker stop mid-run
 ```
 
-### Testing New Features
+Unit tests drive fake `rsync`, `ssh`, `ssh-keygen` and `sshpass` binaries, so they run
+anywhere in a few seconds. The integration stack in `compose/` is what CI runs before an
+image is published.
 
-**Unit Tests** - Add to `tests/unit/`
-- Test individual functions and methods
-- Use mocks for external dependencies
-- Focus on edge cases and error conditions
+## Acknowledgements
 
-**Integration Tests** - Add to `tests/integration/`
-- Test complete workflows
-- Use real file operations where appropriate
-- Test SSH connectivity and external services
+This project started as a fork of [insrch/rsync](https://hub.docker.com/r/insrch/rsync).
+Version 2 shares no code with it but owes it the idea.
 
-**Coverage Requirements**
-- New code should be 90%+ covered
-- Critical security functions must be 100% covered
-- Use `--cov-report=html` for detailed analysis
+## License
 
-## Troubleshooting
-
-### SSH Connection Issues
-
-Check SSH connection manually:
-```bash
-docker exec -it rsync-backup ssh -i /.ssh/id_rsa user@tailscale_ip
-```
-
-### Web Interface Not Accessible
-
-Verify port mapping and container status:
-```bash
-docker logs rsync-backup
-curl http://localhost:2222
-```
-
-### JSON Configuration Errors
-
-Validate your routes file:
-```bash
-docker exec -it rsync-backup jq empty /backup_routes.json
-```
-
-### View Detailed Logs
-
-Check sync and web server logs:
-```bash
-docker exec -it rsync-backup tail -f /config/logs/sync.log
-```
-
-### Manual Sync Testing
-
-Run sync manually for testing:
-```bash
-docker exec -it rsync-backup /bin/bash /src/sync_script.sh
-```
-
-## Acknowledgments
-
-This enhanced version was developed with comprehensive testing infrastructure and advanced Docker containerization patterns. The project evolved from a simple rsync wrapper to a fully-tested, production-ready backup solution.
-
-**Development Assistance:**
-- **GitHub Copilot** with Claude Sonnet 4 Agent - Core development and testing infrastructure
-- **Container-based Testing** - Inspired by modern CI/CD practices
-- **Multi-stage Docker Builds** - Production optimization with testing capabilities
-
-**Key Contributions:**
-- 🧪 **Comprehensive test suite** with an enforced coverage threshold
-- 🐳 **Advanced Docker patterns** with multi-stage builds and testing profiles
-- 🔒 **Security-first approach** with extensive input validation testing
-- 📊 **Real file operations testing** using temporary file systems
-- 🎯 **Advanced coverage targeting** for edge cases and exception paths
-
-**Original Project:**
-Based on [insrch/rsync](https://hub.docker.com/r/insrch/rsync) with significant enhancements for Tailscale integration and web management.
-
-## Contributing
-
-If you would like to contribute, feel free to submit a pull request or open an issue on GitHub.
+[MIT](LICENSE)
