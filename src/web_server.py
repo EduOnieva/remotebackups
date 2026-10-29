@@ -62,8 +62,9 @@ class EnhancedLogHandler(http.server.SimpleHTTPRequestHandler):
                     f.seek(-MAX_LOG_SIZE, 2)
                     content = f.read().decode('utf-8', errors='ignore')
                     lines = content.splitlines()
-                    error_summary = self._generate_error_summary(
+                    _, error_summary = self._generate_error_summary(
                         lines, offset=0, truncated=True)
+                    lines.reverse()
                     full_content = '\n'.join(lines)
                     return (
                         f'{error_summary}[LOG TRUNCATED - showing last '
@@ -75,20 +76,27 @@ class EnhancedLogHandler(http.server.SimpleHTTPRequestHandler):
                     
                     if len(lines) > max_lines:
                         # Generate error summary for all lines, then truncate display
-                        error_summary = self._generate_error_summary(lines)
+                        _, error_summary = self._generate_error_summary(lines)
+                        lines = lines[-max_lines:]
+                        lines.reverse()
                         truncated_lines = '\n'.join(lines[-max_lines:])
                         return (
                             f'{error_summary}[LOG TRUNCATED - showing last '
                             f'{max_lines} lines]\n{truncated_lines}')
                     else:
-                        error_summary = self._generate_error_summary(lines)
+                        _, error_summary = self._generate_error_summary(lines)
+                        lines.reverse()
                         return f'{error_summary}{chr(10).join(lines)}'
         except Exception as e:
             logger.error(f'Error reading log file {log_path}: {e}')
             return f'Error reading log file: {str(e)}'
 
-    def _generate_error_summary(self, lines: List[str], offset: int = 0, truncated: bool = False) -> str:
-        '''Generate a summary of errors found in the log with line numbers (size-limited)'''
+    def _generate_error_summary(self, lines: List[str], offset: int = 0, truncated: bool = False) -> Tuple[int, str]:
+        '''Generate a summary of errors found in the log with line numbers (size-limited)
+        
+        Returns:
+            Tuple of (error_count, summary_string)
+        '''
         errors = []
         error_keywords = ['[ERROR]', '[CRITICAL]', 'ERROR:', 'CRITICAL:', 'Failed', 'Exception:', 'Traceback', 'Error:']
         max_errors_to_show = 15  # Limit errors shown to prevent summary from getting too large
@@ -104,10 +112,11 @@ class EnhancedLogHandler(http.server.SimpleHTTPRequestHandler):
                 error_entry = f'Line {i}: {line}'
                 errors.append(error_entry)
         
-        if not errors:
-            return '🟢 ERROR SUMMARY: No errors found\n' + '='*50 + '\n\n'
-        
         error_count = len(errors)
+        
+        if not errors:
+            return (0, '🟢 ERROR SUMMARY: No errors found\n' + '='*50 + '\n\n')
+        
         summary_header = f'🔴 ERROR SUMMARY: {error_count} error{"s" if error_count != 1 else ""} found'
         if truncated:
             summary_header += ' (in displayed portion)'
@@ -128,7 +137,7 @@ class EnhancedLogHandler(http.server.SimpleHTTPRequestHandler):
             summary_message = '\n[ERROR SUMMARY TRUNCATED - too many errors]\n' + '='*50 + '\n\n'
             summary_content = summary_content[:truncation_point] + summary_message
         
-        return summary_content
+        return (error_count, summary_content)
 
     def get_sync_status(self) -> Tuple[str, str]:
         '''Check if sync process is running based on last few log lines with improved robustness'''
@@ -218,7 +227,7 @@ class EnhancedLogHandler(http.server.SimpleHTTPRequestHandler):
             font-weight: bold; 
         }
         .log-content { 
-            background: #010409; padding: 20px; max-height: 75vh; overflow-y: auto; 
+            background: #010409; padding: 20px; max-height: 73vh; overflow-y: auto; 
             white-space: pre-wrap; font-size: 13px; line-height: 1.4;
             scrollbar-width: thin; scrollbar-color: #30363d #0d1117;
         }
@@ -254,7 +263,6 @@ class EnhancedLogHandler(http.server.SimpleHTTPRequestHandler):
         
         <div class="controls-status">
             <div class="system-status">
-                💾 Load: {load_avg[0]:.2f}, {load_avg[1]:.2f}, {load_avg[2]:.2f} | 
                 📄 Log Size: {log_size:.2f} MB | 
                 <span style="color: {status_color}; font-weight: bold;">{sync_status}</span>
             </div>
