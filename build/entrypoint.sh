@@ -104,8 +104,9 @@ fi
 
 log_info "Remote host $REMOTE_HOST is reachable"
 
-# Setup cron job with enhanced logging
-echo "$CRON_SCHEDULE . /etc/environment; /bin/bash /src/sync_script.sh >> /config/logs/sync.log 2>&1" > /etc/crontabs/root
+# The sync script tees its own output into sync.log, so cron's copy goes to the
+# container log (PID 1 stdout) instead; redirecting it to the file too would write every line twice.
+echo "$CRON_SCHEDULE . /etc/environment; /bin/bash /src/sync_script.sh >> /proc/1/fd/1 2>&1" > /etc/crontabs/root
 chmod 0644 /etc/crontabs/root
 log_info "Cron job scheduled: $CRON_SCHEDULE"
 
