@@ -287,6 +287,7 @@ Edit `backup_routes.json` (maps local paths to remote destinations):
 | `CRON_SCHEDULE` | Cron expression for automated sync schedule          | `30 2 * * 1` (weekly)   | Yes      |
 | `SSH_KEY_FILE`  | SSH private key filename                              | `id_rsa`               | Yes      |
 | `TZ`            | Timezone for container                                | `Europe/Madrid`         | No       |
+| `SCHEDULED_RSYNC_TIMEOUT` | Seconds of rsync inactivity before a scheduled run drops a route (`0` disables). Manual runs from the web interface never time out | `3600` (default) | No |
 
 ### Getting Started
 

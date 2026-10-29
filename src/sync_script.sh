@@ -174,6 +174,11 @@ log_info "Acquired sync lock successfully"
     RSYNC_EXTRA_OPTS+=("--delete")
     log_warn "RSYNC_DELETE enabled: rsync will remove extraneous files on destination"
   fi
+  # Set by the cron entry only; a stalled route then fails instead of holding the lock forever
+  if [ "${RSYNC_TIMEOUT:-0}" -gt 0 ]; then
+    RSYNC_EXTRA_OPTS+=("--timeout=$RSYNC_TIMEOUT")
+    log_info "Scheduled run: rsync gives up on a route after ${RSYNC_TIMEOUT}s without I/O"
+  fi
 
   # Process each route with enhanced error handling
   while IFS=$'\t' read -r src dst; do

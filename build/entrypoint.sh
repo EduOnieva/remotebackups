@@ -104,11 +104,19 @@ fi
 
 log_info "Remote host $REMOTE_HOST is reachable"
 
+# Only scheduled runs get an rsync inactivity timeout: a manual run is started by
+# someone who expects it to be long, so it must never be cut short.
+SCHEDULED_RSYNC_TIMEOUT="${SCHEDULED_RSYNC_TIMEOUT:-3600}"
+if ! [[ "$SCHEDULED_RSYNC_TIMEOUT" =~ ^[0-9]+$ ]]; then
+    log_error "SCHEDULED_RSYNC_TIMEOUT must be a number of seconds (0 disables it), got '$SCHEDULED_RSYNC_TIMEOUT'"
+    exit 1
+fi
+
 # The sync script tees its own output into sync.log, so cron's copy goes to the
 # container log (PID 1 stdout) instead; redirecting it to the file too would write every line twice.
-echo "$CRON_SCHEDULE . /etc/environment; /bin/bash /src/sync_script.sh >> /proc/1/fd/1 2>&1" > /etc/crontabs/root
+echo "$CRON_SCHEDULE . /etc/environment; RSYNC_TIMEOUT=$SCHEDULED_RSYNC_TIMEOUT /bin/bash /src/sync_script.sh >> /proc/1/fd/1 2>&1" > /etc/crontabs/root
 chmod 0644 /etc/crontabs/root
-log_info "Cron job scheduled: $CRON_SCHEDULE"
+log_info "Cron job scheduled: $CRON_SCHEDULE (rsync timeout: ${SCHEDULED_RSYNC_TIMEOUT}s)"
 
 # Start web server in background (non-blocking if it fails)
 log_info "Starting enhanced web server on port 80..."
