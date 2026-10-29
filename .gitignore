@@ -33,3 +33,5 @@ Thumbs.db
 __pycache__/
 *.pyc
 
+# Config Volumes
+/backup

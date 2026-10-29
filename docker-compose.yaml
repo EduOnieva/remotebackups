@@ -21,7 +21,9 @@ services:
     networks:
       backup:
         ipv4_address: 192.168.6.10
-
+    labels:
+      - com.centurylinklabs.watchtower.enable=false
+  
   rsync-backup:
     container_name: rsync-backup
     build:
@@ -42,9 +44,11 @@ services:
       - REMOTE_HOST=100.x.x.x  # Your Tailscale IP
       - CRON_SCHEDULE=30 2 * * 1  # Weekly on Monday at 2:30 AM
       - SSH_KEY_FILE=id_rsa
-      - TZ=Europe/Madrid  # Your timezone
-      - ROUTES_FILE=backup_routes.json
-
+      - TZ=Europe/Madrid
+      - ROUTES_FILE=/backup_routes.json
+    labels:
+      - com.centurylinklabs.watchtower.enable=false
+  
   # Test service for running tests in container
   rsync-backup-test:
     container_name: rsync-backup-test
