@@ -132,8 +132,9 @@ LOCK_FILE="/var/lock/sync_script.lock"
 mkdir -p "$(dirname "$LOCK_FILE")"
 exec 200>"$LOCK_FILE"
 
-# Take the lock before announcing the run, so a skipped run is never reported as aborted
-if ! flock -n -w 300 200; then
+# Take the lock before announcing the run, so a skipped run is never reported as aborted.
+# Non-blocking on purpose: a run that overlaps the previous one is skipped, not queued.
+if ! flock -n 200; then
     log_warn "Another sync instance is running, skipping this run"
     exit 1
 fi
