@@ -2,25 +2,25 @@
 set -euo pipefail
 
 # Enhanced logging functions with consistent quoting and documentation
-
+log_file="/config/logs/sync.log"
 # Log an informational message with timestamp
 log_info() {
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [INFO] $*"
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [INFO] $*" | tee -a "$log_file"
 }
 
 # Log an error message with timestamp to stderr
 log_error() {
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [ERROR] $*" >&2
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [ERROR] $*" | tee -a "$log_file" >&2
 }
 
 # Log a warning message with timestamp
 log_warn() {
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [WARN] $*"
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [WARN] $*" | tee -a "$log_file"
 }
 
 # Log a success message with timestamp
 log_success() {
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [SUCCESS] $*"
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [SUCCESS] $*" | tee -a "$log_file"
 }
 
 # Path validation function to prevent directory traversal
@@ -100,7 +100,7 @@ log_info "Starting sync process..."
 
 # Ensure detail log file exists
 mkdir -p /config/logs
-touch /config/logs/sync.log
+touch "$log_file"
 
 # Create and open lock file explicitly
 LOCK_FILE="/var/lock/sync_script.lock"
@@ -197,13 +197,12 @@ log_info "Acquired sync lock successfully"
 
     # Execute rsync with comprehensive options and error handling
     start_time=$(date +%s)
-    
-    if rsync -avzP --stats --timeout=3600 \
+      if rsync -avz --partial --stats \
       --exclude='*.Trash*' --exclude='lost+found' --exclude='System Volume Information' \
       --exclude='.DS_Store' --exclude='Thumbs.db' --exclude='desktop.ini' --exclude='sync.log' \
       --exclude='.venv' \
       -e "ssh -i /.ssh/id_rsa -o BatchMode=yes -o ConnectTimeout=10 -o ServerAliveInterval=60 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" \
-      "$src/" "$REMOTE_USER@$REMOTE_HOST:$dst/" 2>&1 | tee -a "/config/logs/sync.log"; then
+      "$src/" "$REMOTE_USER@$REMOTE_HOST:$dst/" 2>&1 | tee -a "$log_file"; then
       
       end_time=$(date +%s)
       duration=$((end_time - start_time))
@@ -223,7 +222,14 @@ log_info "Acquired sync lock successfully"
   # Final statistics and summary
   total_end_time=$(date +%s)
   total_duration=$((total_end_time - total_start_time))
-  log_info "Sync process completed - Success: $success_count, Failures: $failure_count, Total Duration: ${total_duration}s"
+  
+  # Convert duration to HH:MM:SS format
+  hours=$((total_duration / 3600))
+  minutes=$(((total_duration % 3600) / 60))
+  seconds=$((total_duration % 60))
+  formatted_duration=$(printf "%02d:%02d:%02d" $hours $minutes $seconds)
+  
+  log_info "Sync process completed - Success: $success_count, Failures: $failure_count, Total Duration: $formatted_duration"
   
   if [ "$failure_count" -gt 0 ]; then
     log_warn "Some syncs failed. Check logs for details."
