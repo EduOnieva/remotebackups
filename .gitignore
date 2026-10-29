@@ -8,7 +8,6 @@ dist/
 # Docker
 *.env
 docker-compose.override.yml
-.dockerignore
 
 # Sensitive files
 config/
