@@ -1,15 +1,14 @@
 # Multi-stage build: production and testing
-FROM alpine:latest as base
+FROM alpine:3.24.3 AS base
 
 # Install common dependencies
-RUN apk add --no-cache openssh-client git rsync util-linux bash tzdata jq python3 py3-pip
+RUN apk add --no-cache openssh-client rsync util-linux bash tzdata jq python3 py3-pip
 
-# Install requests for web server
-RUN pip3 install --no-cache-dir --break-system-packages requests==2.32.5
+# DDP WebSocket client for the TrueNAS status endpoint
 RUN pip3 install --no-cache-dir --break-system-packages websocket-client==1.9.0
 
 # Production stage
-FROM base as production
+FROM base AS production
 
 COPY build/entrypoint.sh /entrypoint.sh
 COPY backup_routes.json /backup_routes.json
@@ -22,16 +21,16 @@ VOLUME /data
 CMD ["/entrypoint.sh"]
 
 # Testing stage
-FROM base as testing
+FROM base AS testing
 
 # Install test dependencies
 RUN pip3 install --no-cache-dir --break-system-packages \
-    pytest>=7.0.0 \
-    pytest-cov>=4.0.0 \
-    pytest-mock>=3.10.0 \
-    pytest-timeout>=2.1.0 \
-    psutil>=5.9.0 \
-    requests>=2.28.0
+    pytest==9.2.0 \
+    pytest-cov==7.1.0 \
+    pytest-mock==3.17.0 \
+    pytest-timeout==2.4.0 \
+    psutil==7.2.2 \
+    requests==2.32.5
 
 # Copy application source
 COPY src /src
