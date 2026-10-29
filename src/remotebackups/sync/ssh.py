@@ -105,11 +105,12 @@ class SshSetup:
         key = self.resolve_key()
         runtime_key: Path | None = None
         if key is not None:
-            self.check_key(key)
             runtime_key = self._paths.runtime_ssh_dir / "key"
-            # Bind-mounted keys often arrive world-readable or with another owner; ssh refuses them
+            # Bind-mounted keys often arrive world-readable or with another owner; ssh refuses
+            # them, so every check and every run uses this private copy instead
             shutil.copyfile(key, runtime_key)
             runtime_key.chmod(0o600)
+            self.check_key(runtime_key)
         self._paths.known_hosts.touch(mode=0o600, exist_ok=True)
         if self._remote.host_key:
             self._pin_host_key(self._remote.host_key)

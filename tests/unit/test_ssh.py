@@ -69,6 +69,16 @@ class TestPrepare:
         assert "  BatchMode yes\n" in config
         assert paths.known_hosts.exists()
 
+    def test_key_is_checked_on_the_private_copy_not_the_mounted_file(
+        self, paths: ConfigPaths, ssh_key: Path, fake_bin: FakeBinaries, tmp_path: Path
+    ) -> None:
+        args_file = tmp_path / "keygen-args"
+        fake_bin.configure(ssh_keygen_args_file=str(args_file))
+        SshSetup(paths, remote()).prepare()
+
+        argv = json.loads(args_file.read_text().splitlines()[0])
+        assert argv[-1] == str(paths.runtime_ssh_dir / "key")
+
     def test_password_mode_disables_keys_and_batch_mode(
         self, paths: ConfigPaths, fake_bin: FakeBinaries
     ) -> None:

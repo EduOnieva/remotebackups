@@ -5,8 +5,11 @@
 
 import argparse
 import asyncio
+import os
 import signal
 import sys
+import urllib.error
+import urllib.request
 from collections.abc import Sequence
 
 from pydantic import ValidationError
@@ -45,6 +48,7 @@ def build_parser() -> argparse.ArgumentParser:
     show = commands.add_parser("print-config", help="print the effective configuration as YAML")
     show.add_argument("--redact", action="store_true", help="mask secrets")
     commands.add_parser("print-example-config", help="print the commented example config.yaml")
+    commands.add_parser("healthcheck", help="exit 0 when the local web server reports healthy")
     once = commands.add_parser("run-once", help="run one backup now in the foreground and exit")
     once.add_argument("--delete", action="store_true", help="pass --delete to rsync")
     once.add_argument(
@@ -61,6 +65,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command == "print-example-config":
         print(EXAMPLE_TEXT, end="")
         return 0
+    if args.command == "healthcheck":
+        return healthcheck()
 
     try:
         env = EnvSettings()
@@ -121,6 +127,17 @@ async def _run_once(
         print(f"  {folder.name}: {folder.status.value}{detail}")
     print(f"Outcome: {finished.outcome.value}")
     return 0 if finished.outcome is RunOutcome.COMPLETED else EXIT_RUN_NOT_CLEAN
+
+
+def healthcheck() -> int:
+    """The Docker HEALTHCHECK: no curl or wget needed, honours WEB_PORT."""
+    port = os.environ.get("WEB_PORT", "8080")
+    try:
+        with urllib.request.urlopen(f"http://127.0.0.1:{port}/healthz", timeout=4) as response:
+            return 0 if response.status == 200 else 1
+    except (urllib.error.URLError, OSError) as exc:
+        print(f"unhealthy: {exc}", file=sys.stderr)
+        return 1
 
 
 def _report(error: ConfigError) -> int:

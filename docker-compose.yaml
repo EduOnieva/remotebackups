@@ -1,83 +1,34 @@
+# remotebackups: back up folders of this host to another host over SSH.
+# This file is for a destination reachable directly (LAN, a host already on your VPN).
+# For a destination reached through Tailscale, use docker-compose.tailscale.yaml instead.
+#
+# 1. Put your SSH private key in ./config/ssh/ (one key: it is picked up automatically).
+# 2. Mount each folder to back up read-only under /data and set REMOTE_HOST / REMOTE_USER.
+# 3. docker compose up -d, then open http://<this-host>:8080 and edit ./config/config.yaml
+#    (a commented example is written on first start; folders are re-read before every run).
 services:
-  tailscale: 
-    container_name: tailscale-backup
-    hostname: your-hostname
-    image: tailscale/tailscale:stable 
-    ports:
-      - "2222:80"
-    environment:
-      - TS_AUTHKEY=your_tailscale_auth_key_here
-      - TS_STATE_DIR=/var/lib/tailscale
-      - TS_USERSPACE=false
-    volumes: 
-      - ./config/tailscale/state:/var/lib/tailscale
-      - ./config/tailscale/config:/config
-    cap_add:
-      - net_admin
-      - sys_module
-    devices:
-      - /dev/net/tun:/dev/net/tun
+  remotebackups:
+    image: eduonieva/remotebackups:latest
+    container_name: remotebackups
     restart: unless-stopped
-    networks:
-      backup:
-        ipv4_address: 192.168.6.10
-    labels:
-      - com.centurylinklabs.watchtower.enable=false
-  
-  rsync-backup:
-    container_name: rsync-backup
-    build:
-      context: .
-      dockerfile: build/Dockerfile
-      target: production
+    stop_grace_period: 30s # a running rsync gets SIGTERM and ten seconds before SIGKILL
+    ports:
+      - "8080:8080"
     volumes:
       - ./config:/config
-      - ~/.ssh:/mnt/ssh_keys:ro
-      - /path/to/your/data1:/data/source1
-      - /path/to/your/data2:/data/source2
-    restart: unless-stopped
-    network_mode: service:tailscale
-    depends_on:
-      - tailscale
+      - /path/to/documents:/data/documents:ro
+      - /path/to/photos:/data/photos:ro
     environment:
-      - REMOTE_USER=your_remote_username
-      - REMOTE_HOST=100.x.x.x  # Your Tailscale IP
-      - TRUENAS_DISABLED=false  # true if the remote is not a TrueNAS: /api/pool_status becomes rsync-only and REMOTE_API_TOKEN is unused
-      - REMOTE_API_TOKEN=your_truenas_api_key_here
-      - TRUENAS_POOL_ALIASES=  # Optional: rename pools in /api/pool_status, e.g. tank:disk-0,vault:disk-1
-      - CRON_SCHEDULE=30 2 * * 1  # Weekly on Monday at 2:30 AM
-      - SCHEDULED_RSYNC_TIMEOUT=3600  # Seconds of rsync inactivity before a scheduled run drops a route; 0 disables. Manual runs have no timeout
-      - SSH_KEY_FILE=id_rsa
-      - TZ=Europe/Madrid
-      - ROUTES_FILE=/backup_routes.json
-    labels:
-      - com.centurylinklabs.watchtower.enable=false
-  
-  # Test service for running tests in container
-  rsync-backup-test:
-    container_name: rsync-backup-test
-    build:
-      context: .
-      dockerfile: build/Dockerfile
-      target: testing
-    volumes:
-      # Mount source code for live development testing
-      - ./src:/src
-      - ./tests:/tests
-      - ./pytest.ini:/pytest.ini
-      - ./run_tests.sh:/run_tests.sh
-      - ./requirements-test.txt:/requirements-test.txt
-      # Create test logs directory
-      - ./test-logs:/logs
-    environment:
-      - TZ=Europe/Madrid
-      - PYTHONPATH=/src
-    profiles:
-      - testing
-    command: ["/run_tests.sh", "help"]
-    
-networks:
-  backup:
-    ipam:
-      config:
-        - subnet: 192.168.6.0/24
+      - REMOTE_HOST=192.168.1.20
+      - REMOTE_USER=backup
+      - TZ=Etc/UTC
+      # - CRON_SCHEDULE=30 2 * * 1        # default: weekly, Monday 02:30
+      # - SCHEDULED_RSYNC_TIMEOUT=3600    # rsync inactivity timeout for scheduled runs only
+      # - TRUENAS_API_KEY=                # enables the TrueNAS card when the destination is a TrueNAS
+      # - TRUENAS_POOL_ALIASES=tank:disk-0
+      # - SSH_PASSWORD=                   # password auth instead of a key (not recommended)
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

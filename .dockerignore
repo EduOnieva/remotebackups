@@ -1,63 +1,8 @@
-# Docker ignore file for rsync-tailscale-docker
-
-# Exclude unnecessary files from Docker context
-**/.git
-**/.gitignore
-**/README.md
-**/*.md
-
-# Exclude development files
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# Exclude test artifacts (they'll be mounted as volumes)
-test-logs/
-htmlcov/
-.coverage
-.pytest_cache/
-reports/
-pytest.log
-
-# Exclude Python cache files
-**/__pycache__/
-**/*.pyc
-**/*.pyo
-**/*.pyd
-.Python
-
-# Exclude Node.js files if any
-node_modules/
-npm-debug.log*
-
-# Exclude OS generated files
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
-
-# Exclude temporary files
-*.tmp
-*.temp
-*.log
-
-# Exclude build artifacts but keep build/ directory
-# dist/
-*.egg-info/
-
-# Docker-related files (no need to copy into container)
-docker-compose.override.yml
-
-# Exclude local configuration that shouldn't be in container
-.env.local
-local_config.*
-# Never ship the owner's real deployment files, the virtualenv or the test tree
-backup/
-.venv/
-tests/
-.github/
+# Only pyproject.toml, uv.lock, README.md, LICENSE and src/ reach the image.
+*
+!pyproject.toml
+!uv.lock
+!README.md
+!LICENSE
+!src/
+src/**/__pycache__/

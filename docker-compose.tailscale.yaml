@@ -1,0 +1,68 @@
+# remotebackups behind a Tailscale sidecar: the destination is reached through your tailnet
+# and the web UI is reachable only from your tailnet (http://<node-name>:8080), nothing is
+# published on the LAN unless you uncomment the ports below.
+#
+# 1. Create an auth key at https://login.tailscale.com/admin/settings/keys and set TS_AUTHKEY.
+# 2. Put your SSH private key in ./config/ssh/ (one key: it is picked up automatically).
+# 3. Mount each folder to back up read-only under /data and set REMOTE_HOST / REMOTE_USER
+#    (REMOTE_HOST is the destination's tailnet IP or MagicDNS name).
+# 4. docker compose -f docker-compose.tailscale.yaml up -d
+services:
+  tailscale:
+    image: tailscale/tailscale:v1.104.4
+    container_name: remotebackups-tailscale
+    hostname: remotebackups # the node name on your tailnet
+    restart: unless-stopped
+    environment:
+      - TS_AUTHKEY=tskey-auth-xxxxxxxxxxxx
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_USERSPACE=false # kernel networking: fast and transparent, needs the device and capability below
+      - TS_AUTH_ONCE=true # after the first login the state volume keeps the identity; no re-auth on restart
+      - TS_ENABLE_HEALTH_CHECK=true
+      - TS_LOCAL_ADDR_PORT=127.0.0.1:9002
+    volumes:
+      - ./config/tailscale:/var/lib/tailscale
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    cap_add:
+      - net_admin
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9002/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 30s
+    # ports:
+    #   - "8080:8080"   # also expose the UI on this host's LAN address
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  remotebackups:
+    image: eduonieva/remotebackups:latest
+    container_name: remotebackups
+    network_mode: service:tailscale
+    depends_on:
+      tailscale:
+        condition: service_healthy
+    restart: unless-stopped
+    stop_grace_period: 30s
+    volumes:
+      - ./config:/config
+      - /path/to/documents:/data/documents:ro
+      - /path/to/photos:/data/photos:ro
+    environment:
+      - REMOTE_HOST=100.64.0.9
+      - REMOTE_USER=backup
+      - TZ=Etc/UTC
+      # - CRON_SCHEDULE=30 2 * * 1
+      # - SCHEDULED_RSYNC_TIMEOUT=3600
+      # - TRUENAS_API_KEY=
+      # - TRUENAS_POOL_ALIASES=tank:disk-0
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

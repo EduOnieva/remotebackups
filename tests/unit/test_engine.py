@@ -143,15 +143,15 @@ async def test_cancel_stops_the_current_folder_and_skips_the_rest(
     assert record is not None
     assert record.outcome is RunOutcome.CANCELLED
     assert record.reason == "user"
-    assert record.folders[0].status is FolderStatus.FAILED
+    assert record.folders[0].status is FolderStatus.CANCELLED
     assert record.folders[0].exit_code == 20
+    assert record.folders[0].message == "interrupted by stop (user); rsync exit 20"
     assert record.folders[1].status is FolderStatus.SKIPPED
     assert record.folders[1].message == "run cancelled (user)"
+    assert record.folders_failed == 0, "a stopped transfer is not an error"
     assert engine.state is RunState.IDLE
     log = history.log_path(record.id).read_text()
-    assert "[WARN] Folder docs: rsync exit 20" in log, (
-        "a cancelled folder is a warning, not an error"
-    )
+    assert "[WARN] Folder docs: interrupted by stop" in log
 
 
 async def test_second_start_is_refused_while_running(

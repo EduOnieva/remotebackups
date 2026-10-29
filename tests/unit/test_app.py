@@ -9,6 +9,7 @@ import pytest
 from httpx import AsyncClient
 
 from remotebackups.app import Application
+from remotebackups.cli import main
 from remotebackups.config import ConfigError, EnvSettings
 from remotebackups.paths import ConfigPaths
 from remotebackups.scheduler import CronScheduler
@@ -86,6 +87,11 @@ async def test_web_server_answers_health_and_status(
     assert health.status_code == 200
     assert status.json()["remote"]["ok"] is True
     assert status.json()["schedule"] is None
+
+    monkeypatch.setenv("WEB_PORT", str(app.web_port))
+    assert await asyncio.to_thread(main, ["healthcheck"]) == 0
+    monkeypatch.setenv("WEB_PORT", "1")  # nothing listens there
+    assert await asyncio.to_thread(main, ["healthcheck"]) == 1
 
     app.request_shutdown("test")
     assert await task == 0

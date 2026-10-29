@@ -22,6 +22,10 @@ def setting(name: str, default: str | None = None) -> str | None:
 
 
 def main() -> int:
+    args_file = setting("ssh_keygen_args_file")
+    if args_file:
+        with open(args_file, "a", encoding="utf-8") as handle:
+            handle.write(json.dumps(sys.argv) + "\n")
     if setting("ssh_keygen_mode", "ok") == "passphrase":
         print(
             f"Load key \"{sys.argv[-1]}\": incorrect passphrase supplied to decrypt private key",

@@ -228,14 +228,17 @@ class SyncEngine:
         if exit_code == 0:
             result.status = FolderStatus.OK
             log.event("INFO", f"Folder {folder.name}: done")
+        elif self._cancel_reason:
+            result.status = FolderStatus.CANCELLED
+            result.message = f"interrupted by stop ({self._cancel_reason}); rsync exit {exit_code}"
+            log.event("WARN", f"Folder {folder.name}: {result.message}")
         else:
             result.status = FolderStatus.FAILED
             meaning = describe_exit(exit_code)
             if exit_code in PARTIAL_TRANSFER_CODES:
                 meaning += " (see the rsync messages above)"
             result.message = f"rsync exit {exit_code}: {meaning}"
-            level = "WARN" if self._cancel_reason else "ERROR"
-            log.event(level, f"Folder {folder.name}: {result.message}")
+            log.event("ERROR", f"Folder {folder.name}: {result.message}")
 
     def _outcome(self, record: RunRecord) -> RunOutcome:
         if self._cancel_reason:

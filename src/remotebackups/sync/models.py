@@ -34,6 +34,8 @@ class FolderStatus(StrEnum):
     RUNNING = "running"
     OK = "ok"
     FAILED = "failed"
+    # Interrupted by a Stop; not an error, rsync resumes it on the next run
+    CANCELLED = "cancelled"
     SKIPPED = "skipped"
 
 

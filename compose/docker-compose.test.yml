@@ -1,0 +1,81 @@
+# Integration stack: a real sshd with rsync, the image under test, and a pytest runner.
+# Run with `make test-integration`; everything lives in named volumes that `down -v` removes.
+services:
+  keygen:
+    image: alpine:3.24.3
+    command: >
+      sh -c 'apk add --no-cache openssh-keygen >/dev/null &&
+             [ -f /keys/id_ed25519 ] || ssh-keygen -q -t ed25519 -N "" -f /keys/id_ed25519;
+             chmod 644 /keys/id_ed25519 /keys/id_ed25519.pub'
+    volumes:
+      - keys:/keys
+
+  sshd:
+    build: ./sshd
+    depends_on:
+      keygen:
+        condition: service_completed_successfully
+    volumes:
+      - keys:/keys:ro
+      - dest:/mnt/backup
+    healthcheck:
+      test: ["CMD", "nc", "-z", "127.0.0.1", "22"]
+      interval: 2s
+      timeout: 2s
+      retries: 15
+
+  app:
+    build:
+      context: ..
+    depends_on:
+      sshd:
+        condition: service_healthy
+    environment:
+      - REMOTE_HOST=sshd
+      - REMOTE_USER=backup
+      - SSH_KEY=/keys/id_ed25519
+      - CRON_SCHEDULE=
+      - LOG_LEVEL=DEBUG
+    volumes:
+      - keys:/keys:ro
+      - app-config:/config
+      - source:/data:ro
+
+  # Same image, password authentication against a second user; shares the sshd
+  app-password:
+    build:
+      context: ..
+    depends_on:
+      sshd:
+        condition: service_healthy
+    environment:
+      - REMOTE_HOST=sshd
+      - REMOTE_USER=pwuser
+      - SSH_PASSWORD=testpass
+      - CRON_SCHEDULE=
+    volumes:
+      - app-password-config:/config
+      - source:/data:ro
+
+  tests:
+    build:
+      context: ..
+      dockerfile: compose/tests.Dockerfile
+    depends_on:
+      - app
+      - app-password
+    environment:
+      - APP_URL=http://app:8080
+      - APP_PASSWORD_URL=http://app-password:8080
+    volumes:
+      - app-config:/appconfig
+      - app-password-config:/appconfig-password
+      - source:/data
+      - dest:/dest
+
+volumes:
+  keys:
+  dest:
+  source:
+  app-config:
+  app-password-config:
