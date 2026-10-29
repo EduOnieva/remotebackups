@@ -53,7 +53,7 @@ class EnvSettings(BaseSettings):
     # Process-level settings that are not part of config.yaml
     config_dir: Path = Path("/config")
     runtime_dir: Path = Path("/run/remotebackups")
-    web_port: int = Field(8080, ge=1, le=65535)
+    web_port: int = Field(8080, ge=0, le=65535)  # 0 lets the OS pick a port
     log_level: str = "INFO"
     tz: str = "Etc/UTC"
 

@@ -4,20 +4,28 @@ import asyncio
 import contextlib
 import logging
 import signal
+from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
+import uvicorn
+
+from remotebackups import __version__
 from remotebackups.clock import Clock, SystemClock
 from remotebackups.config import Config, ConfigError, EnvSettings, load_config
 from remotebackups.config.loader import ensure_config_files
 from remotebackups.paths import ConfigPaths
 from remotebackups.scheduler import CronScheduler
 from remotebackups.sync import RunHistory, SshSetup, SshSetupError, SyncEngine
+from remotebackups.truenas import TrueNASService
+from remotebackups.web import Services, create_app
 
 logger = logging.getLogger(__name__)
 
 PROBE_INTERVAL_SECONDS = 300.0
+# Open SSE streams would otherwise hold the server up for uvicorn's default graceful period
+WEB_SHUTDOWN_TIMEOUT_SECONDS = 3
 
 
 @dataclass(frozen=True)
@@ -27,6 +35,14 @@ class RemoteStatus:
     ok: bool | None
     message: str
     checked_at: datetime | None
+
+
+class _QuietServer(uvicorn.Server):
+    """uvicorn without its own signal handling: the Application owns SIGTERM and SIGINT."""
+
+    @contextlib.contextmanager
+    def capture_signals(self) -> Iterator[None]:
+        yield
 
 
 class Application:
@@ -40,13 +56,25 @@ class Application:
         self._shutdown = asyncio.Event()
         self._shutdown_reason = ""
         self._probe_task: asyncio.Task[None] | None = None
-        # Built by run(); typed as Optional so a web layer can ask before startup finished
+        self._server: _QuietServer | None = None
+        self._serve_task: asyncio.Task[None] | None = None
+        # Built by run(); typed as Optional so callers can ask before startup finished
         self.history: RunHistory | None = None
         self.engine: SyncEngine | None = None
         self.scheduler: CronScheduler | None = None
+        self.truenas: TrueNASService | None = None
 
     def load_config(self) -> Config:
         return load_config(self.paths, self.env)
+
+    @property
+    def web_port(self) -> int | None:
+        """The port actually bound, once the server listens (useful when WEB_PORT=0)."""
+        if self._server is None or not self._server.started or not self._server.servers:
+            return None
+        sockets = self._server.servers[0].sockets
+        port: int = sockets[0].getsockname()[1]
+        return port
 
     async def run(self) -> int:
         """Serve until a shutdown is requested. Raises ConfigError when the config is unusable."""
@@ -61,7 +89,8 @@ class Application:
                 self.paths.config_dir,
             )
         logger.info(
-            "remotebackups starting: folders=%d schedule=%s remote=%s@%s",
+            "remotebackups %s starting: folders=%d schedule=%s remote=%s@%s",
+            __version__,
             len(config.enabled_folders),
             config.schedule.cron or "disabled",
             config.remote.user,
@@ -73,8 +102,10 @@ class Application:
         self.history.prune()
         self.engine = SyncEngine(self.load_config, self.paths, self.history, self.clock)
         self.scheduler = CronScheduler(self.load_config, self.tz, self.engine, self.clock)
+        self.truenas = TrueNASService(self.load_config, self.clock)
         self.scheduler.start()
         self._probe_task = asyncio.create_task(self._probe_loop(), name="remote-probe")
+        await self._start_web()
 
         loop = asyncio.get_running_loop()
         for sig in (signal.SIGTERM, signal.SIGINT):
@@ -111,6 +142,42 @@ class Application:
             logger.warning("Remote host check failed: %s", message)
         return self.remote_status
 
+    def services(self) -> Services:
+        assert self.engine and self.history and self.scheduler and self.truenas
+        assert self.started_at is not None
+        scheduler = self.scheduler
+        return Services(
+            engine=self.engine,
+            history=self.history,
+            truenas=self.truenas,
+            config_provider=self.load_config,
+            next_run_at=lambda: scheduler.next_run_at,
+            scheduler_alive=lambda: scheduler.alive,
+            remote_status=lambda: self.remote_status,
+            version=__version__,
+            started_at=self.started_at,
+        )
+
+    async def _start_web(self) -> None:
+        config = uvicorn.Config(
+            create_app(self.services()),
+            host="0.0.0.0",
+            port=self.env.web_port,
+            log_config=None,
+            access_log=False,
+            lifespan="off",
+            timeout_graceful_shutdown=WEB_SHUTDOWN_TIMEOUT_SECONDS,
+        )
+        self._server = _QuietServer(config)
+        self._serve_task = asyncio.create_task(self._server.serve(), name="web")
+        while not self._server.started:
+            if self._serve_task.done():
+                # uvicorn logs the bind error itself and exits; surface it instead of hanging
+                self._serve_task.result()
+                raise RuntimeError(f"web server did not start on port {self.env.web_port}")
+            await asyncio.sleep(0.01)
+        logger.info("Web UI listening on port %d", self.web_port or self.env.web_port)
+
     async def _probe_loop(self) -> None:
         while True:
             await self.probe_remote()
@@ -126,4 +193,7 @@ class Application:
                 await self._probe_task
         if self.engine is not None and self.engine.current is not None:
             await self.engine.cancel("shutdown")
+        if self._server is not None and self._serve_task is not None:
+            self._server.should_exit = True
+            await self._serve_task
         logger.info("remotebackups stopped (%s)", self._shutdown_reason)

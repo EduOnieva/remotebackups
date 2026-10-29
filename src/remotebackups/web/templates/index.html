@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en" data-theme="{{ theme }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>remotebackups</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  <header>
+    <h1>remotebackups <span class="muted">v{{ version }}</span></h1>
+    <div class="actions">
+      <button id="run" class="primary">Run</button>
+      <button id="run-delete" class="warn">Run with delete</button>
+      <button id="stop" class="danger" hidden>Stop</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="cards">
+      <article class="card" id="status-card">
+        <h2>Status</h2>
+        <p class="big" id="state">loading…</p>
+        <dl>
+          <dt>Current folder</dt><dd id="current-folder">–</dd>
+          <dt>Elapsed</dt><dd id="elapsed">–</dd>
+          <dt>Last run</dt><dd id="last-run">–</dd>
+          <dt>Next scheduled</dt><dd id="next-run">–</dd>
+        </dl>
+      </article>
+      <article class="card">
+        <h2>Remote</h2>
+        <p class="big" id="remote-host">{{ remote }}</p>
+        <dl>
+          <dt>Reachable</dt><dd id="remote-ok">–</dd>
+          <dt>Checked</dt><dd id="remote-checked">–</dd>
+        </dl>
+        <p class="muted small" id="remote-message"></p>
+      </article>
+      <article class="card" id="truenas-card" hidden>
+        <h2>TrueNAS</h2>
+        <dl id="truenas-list"></dl>
+      </article>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <h2 id="log-title">Log</h2>
+        <label class="small"><input type="checkbox" id="follow" checked> follow</label>
+      </div>
+      <pre id="log" class="log">Select a run below or start one.</pre>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <h2>Runs</h2>
+        <button id="clear" class="ghost small">Clear history</button>
+      </div>
+      <table id="runs">
+        <thead>
+          <tr><th>Started</th><th>Trigger</th><th>Outcome</th><th>Duration</th><th>Folders</th><th>Files</th><th>Sent</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <section class="card">
+      <h2>Folders</h2>
+      <table id="folders">
+        <thead><tr><th>Name</th><th>Source</th><th>Destination</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+  </main>
+
+  <div id="toast" hidden></div>
+  <script src="/static/app.js"></script>
+</body>
+</html>

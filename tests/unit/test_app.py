@@ -6,6 +6,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
+from httpx import AsyncClient
 
 from remotebackups.app import Application
 from remotebackups.config import ConfigError, EnvSettings
@@ -69,6 +70,25 @@ async def test_sigterm_stops_the_active_run_and_exits_zero(
     assert record.reason == "shutdown"
     assert not alive(app.scheduler)
     assert app.engine.current is None
+
+
+async def test_web_server_answers_health_and_status(
+    configured: Path, paths: ConfigPaths, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("WEB_PORT", "0")  # let the OS pick a free port
+    app = Application(EnvSettings(), paths)
+    task = asyncio.create_task(app.run())
+    await wait_for(lambda: app.web_port is not None and app.remote_status.ok is not None)
+
+    async with AsyncClient(base_url=f"http://127.0.0.1:{app.web_port}") as http:
+        health = await http.get("/healthz")
+        status = await http.get("/api/status")
+    assert health.status_code == 200
+    assert status.json()["remote"]["ok"] is True
+    assert status.json()["schedule"] is None
+
+    app.request_shutdown("test")
+    assert await task == 0
 
 
 async def test_remote_problems_are_reported_not_fatal(
