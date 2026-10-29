@@ -281,8 +281,8 @@ Edit `backup_routes.json` (maps local paths to remote destinations):
 | `SSH_KEY_FILE`  | SSH private key filename                              | `id_rsa`               | Yes      |
 | `TZ`            | Timezone for container                                | `Europe/Madrid`         | No       |
 | `SCHEDULED_RSYNC_TIMEOUT` | Seconds of rsync inactivity before a scheduled run drops a route (`0` disables). Manual runs from the web interface never time out | `3600` (default) | No |
-| `TRUENAS_ENABLED` | Set to `true` to query the remote TrueNAS for alerts and pool free space at `/api/pool_status`. Everything else works without it | `false` (default) | No |
-| `REMOTE_API_TOKEN` | TrueNAS API key used when `TRUENAS_ENABLED=true` | `1-xxxx...` | Only with TrueNAS |
+| `TRUENAS_DISABLED` | Set to `true` when the remote is not a TrueNAS. `/api/pool_status` then returns only the sync error count and no API key is needed | `false` (default) | No |
+| `REMOTE_API_TOKEN` | TrueNAS API key used to read alerts and pool free space | `1-xxxx...` | Unless `TRUENAS_DISABLED=true` |
 | `TRUENAS_VERIFY_TLS` | Verify the TrueNAS HTTPS certificate. Off by default because home NAS boxes usually use a self-signed one | `false` (default) | No |
 
 ### Getting Started
@@ -304,7 +304,7 @@ Features:
 - 📄 **Log Management** - Clear logs when needed
 - 💾 **System Status** - Log file size and the state of the last run (Running, Completed, Completed with errors, Aborted)
 - ⚠️ **Run With Delete** - A manual run that also passes `--delete` to rsync, so files removed locally disappear from the backup. Asks for confirmation first
-- 🗄️ **TrueNAS Status** - `/api/pool_status` returns the sync error count plus, with `TRUENAS_ENABLED=true`, the TrueNAS alert count and free space per pool
+- 🗄️ **TrueNAS Status** - `/api/pool_status` returns the sync error count plus the TrueNAS alert count and free space per pool (unless `TRUENAS_DISABLED=true`)
 
 ## Usage Examples
 

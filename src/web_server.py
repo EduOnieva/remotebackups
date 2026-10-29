@@ -49,8 +49,8 @@ logger.addHandler(file_handler)
 logger.addHandler(console_handler)
 
 def truenas_enabled() -> bool:
-    """The TrueNAS status integration is opt-in; without it the server is rsync-only."""
-    return os.environ.get('TRUENAS_ENABLED', 'false').lower() in ('1', 'true', 'yes')
+    """TrueNAS status is on unless TRUENAS_DISABLED opts out; then the server is rsync-only."""
+    return os.environ.get('TRUENAS_DISABLED', 'false').lower() not in ('1', 'true', 'yes')
 
 
 class TrueNASHandler:
@@ -508,7 +508,7 @@ class EnhancedLogHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_header('Content-type', 'application/json')
                 self.end_headers()
 
-                results = {}
+                results: Dict[str, Any] = {}
 
                 # Add the sync errors count using existing error summary function
                 if os.path.exists(LOG_FILE):

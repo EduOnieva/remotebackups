@@ -140,7 +140,7 @@ def pool_status_handler() -> web_server.EnhancedLogHandler:
 
 
 def test_pool_status_endpoint_is_rsync_only_when_disabled(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv('TRUENAS_ENABLED', raising=False)
+    monkeypatch.setenv('TRUENAS_DISABLED', 'true')
     handler = pool_status_handler()
     with patch('web_server.LOG_FILE', '/nonexistent/sync.log'), \
          patch('web_server.create_connection') as connect:
@@ -150,8 +150,8 @@ def test_pool_status_endpoint_is_rsync_only_when_disabled(monkeypatch: pytest.Mo
     connect.assert_not_called()
 
 
-def test_pool_status_endpoint_merges_truenas_when_enabled(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv('TRUENAS_ENABLED', 'true')
+def test_pool_status_endpoint_merges_truenas_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv('TRUENAS_DISABLED', raising=False)
     handler = pool_status_handler()
     with patch('web_server.LOG_FILE', '/nonexistent/sync.log'), \
          patch.object(web_server.TrueNASHandler, 'get_pool_status',
