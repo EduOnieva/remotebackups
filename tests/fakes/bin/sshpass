@@ -1,0 +1,34 @@
+#!/usr/bin/env python3
+"""Stand-in for `sshpass -e <command...>`: checks SSHPASS is set, then runs the command."""
+
+import json
+import os
+import sys
+
+
+def setting(name: str, default: str | None = None) -> str | None:
+    """`FAKE_<NAME>` from the environment, else `<name>` from $HOME/.remotebackups-fakes.json."""
+    value = os.environ.get("FAKE_" + name.upper())
+    if value is not None:
+        return value
+    control = os.path.join(os.path.expanduser("~"), ".remotebackups-fakes.json")
+    if os.path.exists(control):
+        with open(control, encoding="utf-8") as handle:
+            return json.load(handle).get(name, default)
+    return default
+
+
+def main() -> int:
+    if "SSHPASS" not in os.environ:
+        print("sshpass: SSHPASS environment variable not set", file=sys.stderr)
+        return 3
+    args_file = setting("sshpass_args_file")
+    if args_file:
+        with open(args_file, "a", encoding="utf-8") as handle:
+            handle.write(json.dumps(sys.argv) + "\n")
+    command = sys.argv[2:] if sys.argv[1:2] == ["-e"] else sys.argv[1:]
+    os.execvp(command[0], command)
+
+
+if __name__ == "__main__":
+    sys.exit(main())

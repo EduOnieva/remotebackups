@@ -1,0 +1,36 @@
+#!/usr/bin/env python3
+"""Stand-in for `ssh-keygen -y -P '' -f key`.
+
+FAKE_SSH_KEYGEN_MODE: ok (default) | passphrase
+"""
+
+import json
+import os
+import sys
+
+
+def setting(name: str, default: str | None = None) -> str | None:
+    """`FAKE_<NAME>` from the environment, else `<name>` from $HOME/.remotebackups-fakes.json."""
+    value = os.environ.get("FAKE_" + name.upper())
+    if value is not None:
+        return value
+    control = os.path.join(os.path.expanduser("~"), ".remotebackups-fakes.json")
+    if os.path.exists(control):
+        with open(control, encoding="utf-8") as handle:
+            return json.load(handle).get(name, default)
+    return default
+
+
+def main() -> int:
+    if setting("ssh_keygen_mode", "ok") == "passphrase":
+        print(
+            f"Load key \"{sys.argv[-1]}\": incorrect passphrase supplied to decrypt private key",
+            file=sys.stderr,
+        )
+        return 255
+    print("ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFakeKeyForTests test@fake")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

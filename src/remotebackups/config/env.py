@@ -23,7 +23,7 @@ class FileEnvSource(PydanticBaseSettingsSource):
     """Reads `FILE__<FIELD>` variables and substitutes the named file's contents."""
 
     def get_field_value(self, field: FieldInfo, field_name: str) -> tuple[Any, str, bool]:
-        import os  # noqa: PLC0415 - mirrors how EnvSettingsSource reads the live environment
+        import os
 
         path = os.environ.get(FILE_PREFIX + field_name.upper())
         if path is None:

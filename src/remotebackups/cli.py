@@ -1,20 +1,33 @@
 """Command-line entry point.
 
-Subcommands arrive with the modules they drive. Today: inspecting the configuration.
+Subcommands arrive with the modules they drive. Today: configuration checks and a
+foreground `run-once` that does one backup run without the scheduler or the web UI.
 """
 
 import argparse
+import asyncio
+import signal
 import sys
 from collections.abc import Sequence
 
 from pydantic import ValidationError
 
 from remotebackups import __version__
-from remotebackups.config import ConfigError, EnvSettings, dump_config, load_config
+from remotebackups.clock import SystemClock
+from remotebackups.config import Config, ConfigError, EnvSettings, dump_config, load_config
 from remotebackups.config.loader import EXAMPLE_TEXT, ensure_config_files, format_validation_errors
 from remotebackups.logging_setup import configure_logging
 from remotebackups.paths import ConfigPaths
+from remotebackups.sync import (
+    RunHistory,
+    RunOptions,
+    RunOutcome,
+    RunTrigger,
+    SyncEngine,
+    UnknownFolderError,
+)
 
+EXIT_RUN_NOT_CLEAN = 1
 EXIT_CONFIG_ERROR = 2
 
 
@@ -29,6 +42,11 @@ def build_parser() -> argparse.ArgumentParser:
     show = commands.add_parser("print-config", help="print the effective configuration as YAML")
     show.add_argument("--redact", action="store_true", help="mask secrets")
     commands.add_parser("print-example-config", help="print the commented example config.yaml")
+    once = commands.add_parser("run-once", help="run one backup now in the foreground and exit")
+    once.add_argument("--delete", action="store_true", help="pass --delete to rsync")
+    once.add_argument(
+        "--folder", action="append", dest="folders", metavar="NAME", help="only this folder"
+    )
     return parser
 
 
@@ -63,9 +81,38 @@ def main(argv: Sequence[str] | None = None) -> int:
             f"schedule {config.schedule.cron or 'disabled'}, "
             f"TrueNAS {'on' if config.truenas.is_enabled else 'off'}"
         )
-    elif args.command == "print-config":
+        return 0
+    if args.command == "print-config":
         print(dump_config(config, redact=args.redact), end="")
-    return 0
+        return 0
+    return asyncio.run(
+        _run_once(paths, env, config, RunOptions(delete=args.delete, folders=args.folders))
+    )
+
+
+async def _run_once(
+    paths: ConfigPaths, env: EnvSettings, config: Config, options: RunOptions
+) -> int:
+    clock = SystemClock()
+    history = RunHistory(paths.runs_dir, config.history.keep_days, clock)
+    history.reconcile_unfinished()
+    engine = SyncEngine(lambda: load_config(paths, env), paths, history, clock)
+
+    loop = asyncio.get_running_loop()
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        loop.add_signal_handler(sig, lambda: asyncio.ensure_future(engine.cancel("signal")))
+    try:
+        record = await engine.start(RunTrigger.MANUAL, options)
+    except UnknownFolderError as exc:
+        return _report(ConfigError([str(exc)]))
+    print(f"Run {record.id} started; log: {history.log_path(record.id)}")
+    finished = await engine.wait()
+    assert finished is not None
+    for folder in finished.folders:
+        detail = f" ({folder.message})" if folder.message else ""
+        print(f"  {folder.name}: {folder.status.value}{detail}")
+    print(f"Outcome: {finished.outcome.value}")
+    return 0 if finished.outcome is RunOutcome.COMPLETED else EXIT_RUN_NOT_CLEAN
 
 
 def _report(error: ConfigError) -> int:

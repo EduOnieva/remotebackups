@@ -1,0 +1,51 @@
+#!/usr/bin/env python3
+"""Stand-in for ssh used by the connection probe.
+
+FAKE_SSH_MODE: ok (default) | hostkey | refused | hang
+FAKE_SSH_ARGS_FILE: append this invocation's argv as a JSON line
+"""
+
+import json
+import os
+import sys
+import time
+
+HOSTKEY_WARNING = """@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@    WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED!     @
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+IT IS POSSIBLE THAT SOMEONE IS DOING SOMETHING NASTY!
+Host key verification failed."""
+
+
+def setting(name: str, default: str | None = None) -> str | None:
+    """`FAKE_<NAME>` from the environment, else `<name>` from $HOME/.remotebackups-fakes.json."""
+    value = os.environ.get("FAKE_" + name.upper())
+    if value is not None:
+        return value
+    control = os.path.join(os.path.expanduser("~"), ".remotebackups-fakes.json")
+    if os.path.exists(control):
+        with open(control, encoding="utf-8") as handle:
+            return json.load(handle).get(name, default)
+    return default
+
+
+def main() -> int:
+    args_file = setting("ssh_args_file")
+    if args_file:
+        with open(args_file, "a", encoding="utf-8") as handle:
+            handle.write(json.dumps(sys.argv) + "\n")
+    mode = setting("ssh_mode", "ok")
+    if mode == "ok":
+        return 0
+    if mode == "hostkey":
+        print(HOSTKEY_WARNING, file=sys.stderr)
+        return 255
+    if mode == "refused":
+        print("ssh: connect to host 10.0.0.9 port 22: Connection refused", file=sys.stderr)
+        return 255
+    time.sleep(60)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

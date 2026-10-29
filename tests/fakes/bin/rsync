@@ -1,0 +1,81 @@
+#!/usr/bin/env python3
+"""Stand-in for rsync, driven by environment variables.
+
+FAKE_RSYNC_MODE: ok (default) | exit:<code> | hang | hang-ignore-term
+FAKE_RSYNC_ARGS_FILE: append this invocation's argv as a JSON line
+FAKE_RSYNC_LINES: number of filler file lines to print (default 3)
+"""
+
+import json
+import os
+import signal
+import sys
+import time
+
+STATS = """
+Number of files: 1,234 (reg: 1,000, dir: 234)
+Number of created files: 5 (reg: 5)
+Number of deleted files: 0
+Number of regular files transferred: 3
+Total file size: 1,234,567 bytes
+Total transferred file size: 12,345 bytes
+Literal data: 12,345 bytes
+Matched data: 0 bytes
+File list size: 65,536
+File list generation time: 0.001 seconds
+File list transfer time: 0.000 seconds
+Total bytes sent: 12,500
+Total bytes received: 100
+
+sent 12,500 bytes  received 100 bytes  8,400.00 bytes/sec
+total size is 1,234,567  speedup is 97.97
+"""
+
+
+def setting(name: str, default: str | None = None) -> str | None:
+    """`FAKE_<NAME>` from the environment, else `<name>` from $HOME/.remotebackups-fakes.json."""
+    value = os.environ.get("FAKE_" + name.upper())
+    if value is not None:
+        return value
+    control = os.path.join(os.path.expanduser("~"), ".remotebackups-fakes.json")
+    if os.path.exists(control):
+        with open(control, encoding="utf-8") as handle:
+            return json.load(handle).get(name, default)
+    return default
+
+
+def main() -> int:
+    args_file = setting("rsync_args_file")
+    if args_file:
+        with open(args_file, "a", encoding="utf-8") as handle:
+            handle.write(json.dumps(sys.argv) + "\n")
+
+    mode = setting("rsync_mode", "ok") or "ok"
+    print("sending incremental file list", flush=True)
+
+    if mode.startswith("hang"):
+        if mode == "hang-ignore-term":
+            signal.signal(signal.SIGTERM, signal.SIG_IGN)
+        else:
+            signal.signal(signal.SIGTERM, lambda *_: sys.exit(20))
+        while True:
+            print("still copying", flush=True)
+            time.sleep(0.2)
+
+    for index in range(int(setting("rsync_lines", "3") or "3")):
+        print(f"file{index}.bin", flush=True)
+
+    if mode.startswith("exit:"):
+        code = int(mode.split(":", 1)[1])
+        print(f'rsync: [sender] send_files failed to open "x": Permission denied (13)', flush=True)
+        if code in (23, 24):
+            print(STATS, flush=True)
+        print(f"rsync error: some files/attrs were not transferred (code {code})", flush=True)
+        return code
+
+    print(STATS, flush=True)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
