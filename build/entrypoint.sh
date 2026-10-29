@@ -97,12 +97,13 @@ while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
     sleep 10
 done
 
+# Keep going when the remote is down: the web interface must stay reachable and
+# each scheduled run re-checks the connection and reports its own failure.
 if [ "$CONNECTIVITY_OK" = "false" ]; then
-    log_error "Failed to connect to $REMOTE_HOST after $MAX_RETRIES attempts"
-    exit 1
+    log_warn "Cannot reach $REMOTE_HOST after $MAX_RETRIES attempts, starting anyway"
+else
+    log_info "Remote host $REMOTE_HOST is reachable"
 fi
-
-log_info "Remote host $REMOTE_HOST is reachable"
 
 # Only scheduled runs get an rsync inactivity timeout: a manual run is started by
 # someone who expects it to be long, so it must never be cut short.
