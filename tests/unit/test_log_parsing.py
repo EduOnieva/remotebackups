@@ -303,6 +303,28 @@ class TestSyncStatusDetection:
                 assert status == '🔵 Running'
                 assert color == '#79c0ff'
     
+    def test_get_sync_status_aborted_run(self) -> None:
+        """A run that dies before its summary must not be reported as running."""
+        log_content = (
+            '[2024-01-01 10:00:00] [INFO] Starting sync process...\n'
+            '[2024-01-01 10:00:00] [INFO] Acquired sync lock successfully\n'
+            '[2024-01-01 10:00:00] [INFO] Processing 2 backup route(s)\n'
+            '[2024-01-01 10:00:00] [INFO] Testing SSH connection to user@192.168.1.100\n'
+            '[2024-01-01 10:00:10] [ERROR] SSH connection failed to user@192.168.1.100 (exit code: 255)\n'
+            '[2024-01-01 10:00:10] [ERROR] Sync process aborted (exit code: 1)\n'
+        )
+        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.log') as f:
+            f.write(log_content)
+            log_path = f.name
+        try:
+            with patch('web_server.LOG_FILE', log_path), \
+                 patch('web_server.EnhancedLogHandler.__init__', return_value=None):
+                status, color = EnhancedLogHandler().get_sync_status()
+            assert status == '🔴 Aborted'
+            assert color == '#f85149'
+        finally:
+            os.unlink(log_path)
+
     @patch('web_server.EnhancedLogHandler.__init__', return_value=None)
     def test_get_sync_status_file_error(self, mock_init):
         """Test status when file read fails."""

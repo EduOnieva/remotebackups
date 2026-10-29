@@ -369,6 +369,8 @@ class EnhancedLogHandler(http.server.SimpleHTTPRequestHandler):
                     return '🟢 Completed', '#3fb950'
                 elif 'Some syncs failed. Check logs for details.' in line:
                     return '🟡 Completed with errors', '#d29922'
+                elif 'Sync process aborted' in line:
+                    return '🔴 Aborted', '#f85149'
                 elif 'Starting sync process.' in line:
                     return '🔵 Running', '#79c0ff'
                 elif 'Logs cleared via web interface' in line:

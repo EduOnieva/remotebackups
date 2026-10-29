@@ -70,6 +70,17 @@ cleanup() {
 }
 trap cleanup SIGINT SIGTERM
 
+# Mark a run that dies before its summary so the web status does not stay on "Running"
+run_started=0
+run_completed=0
+on_exit() {
+    local rc=$?
+    if [ "$run_started" = 1 ] && [ "$run_completed" = 0 ]; then
+        log_error "Sync process aborted (exit code: $rc)"
+    fi
+}
+trap on_exit EXIT
+
 # Source environment variables with error checking
 if ! source /etc/environment; then
     log_error "Failed to source environment variables"
@@ -96,8 +107,6 @@ if [ ! -r "$ROUTES_FILE" ]; then
     exit 1
 fi
 
-log_info "Starting sync process..."
-
 # Ensure detail log file exists
 mkdir -p /config/logs
 touch "$log_file"
@@ -107,12 +116,14 @@ LOCK_FILE="/var/lock/sync_script.lock"
 mkdir -p "$(dirname "$LOCK_FILE")"
 exec 200>"$LOCK_FILE"
 
-# Acquire exclusive lock with timeout
+# Take the lock before announcing the run, so a skipped run is never reported as aborted
 if ! flock -n -w 300 200; then
-    log_error "Another sync instance is running or lock timeout exceeded"
+    log_warn "Another sync instance is running, skipping this run"
     exit 1
 fi
 
+log_info "Starting sync process..."
+run_started=1
 log_info "Acquired sync lock successfully"
 
   # Validate JSON with comprehensive error handling
@@ -242,6 +253,8 @@ log_info "Acquired sync lock successfully"
   else
     log_success "All syncs completed successfully"
   fi
+
+run_completed=1
 
 # Close the lock file
 exec 200>&-
