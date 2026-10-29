@@ -48,9 +48,22 @@ console_handler.setFormatter(formatter)
 logger.addHandler(file_handler)
 logger.addHandler(console_handler)
 
+
 def truenas_enabled() -> bool:
     """TrueNAS status is on unless TRUENAS_DISABLED opts out; then the server is rsync-only."""
     return os.environ.get('TRUENAS_DISABLED', 'false').lower() not in ('1', 'true', 'yes')
+
+
+def parse_pool_aliases(raw: str) -> Dict[str, str]:
+    """Parse TRUENAS_POOL_ALIASES ('pool:alias,pool:alias') into a pool-name to alias map."""
+    aliases: Dict[str, str] = {}
+    for entry in raw.split(','):
+        pool_name, sep, alias = entry.partition(':')
+        if sep and pool_name.strip() and alias.strip():
+            aliases[pool_name.strip()] = alias.strip()
+        elif entry.strip():
+            logger.warning('Ignoring malformed TRUENAS_POOL_ALIASES entry: %s', entry.strip())
+    return aliases
 
 
 class TrueNASHandler:
@@ -64,6 +77,8 @@ class TrueNASHandler:
         self.remote_api_token = os.environ.get('REMOTE_API_TOKEN')
         # Off by default: a home NAS reached over Tailscale usually has a self-signed certificate
         self.verify_tls = os.environ.get('TRUENAS_VERIFY_TLS', 'false').lower() in ('1', 'true', 'yes')
+        # Lets consumers keep stable keys (e.g. disk-0) when pools are renamed or recreated
+        self.pool_aliases = parse_pool_aliases(os.environ.get('TRUENAS_POOL_ALIASES', ''))
 
     def _call_ddp_method(self, ws: Any, method: str, params: Optional[List[Any]] = None) -> Any:
         """Send one DDP method call and return its result, skipping unrelated traffic."""
@@ -82,7 +97,7 @@ class TrueNASHandler:
         raise RuntimeError(f'No result for DDP method {method} after {self.MAX_SKIPPED_MESSAGES} messages')
 
     def get_pool_status(self) -> Dict[str, Any]:
-        """Return the alert count and free space per pool keyed by pool name, or an error entry."""
+        """Return the alert count and free space per pool, keyed by alias or pool name, or an error entry."""
         if not self.remote_host or not self.remote_api_token:
             return {'error': 'REMOTE_HOST or REMOTE_API_TOKEN not configured'}
 
@@ -118,8 +133,9 @@ class TrueNASHandler:
                            '; '.join(a.get('formatted', a.get('text', 'unknown')) for a in alerts))
         for pool in pools:
             # Keyed by pool name: TrueNAS ids are database rows that change when a pool is recreated
+            pool_name = pool.get('name', 'unknown')
             free_tb = round(pool.get('free', 0) / (1024 ** 4), 2)
-            result[pool.get('name', 'unknown')] = f'{free_tb} TB'
+            result[self.pool_aliases.get(pool_name, pool_name)] = f'{free_tb} TB'
         logger.info('TrueNAS status: alerts=%d pools=%d', len(alerts), len(pools))
         return result
 

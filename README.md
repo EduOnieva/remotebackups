@@ -283,6 +283,7 @@ Edit `backup_routes.json` (maps local paths to remote destinations):
 | `SCHEDULED_RSYNC_TIMEOUT` | Seconds of rsync inactivity before a scheduled run drops a route (`0` disables). Manual runs from the web interface never time out | `3600` (default) | No |
 | `TRUENAS_DISABLED` | Set to `true` when the remote is not a TrueNAS. `/api/pool_status` then returns only the sync error count and no API key is needed | `false` (default) | No |
 | `REMOTE_API_TOKEN` | TrueNAS API key used to read alerts and pool free space | `1-xxxx...` | Unless `TRUENAS_DISABLED=true` |
+| `TRUENAS_POOL_ALIASES` | Comma-separated `pool:alias` pairs that rename pools in `/api/pool_status`, so dashboards keep stable keys. Unlisted pools keep their TrueNAS name | `tank:disk-0,vault:disk-1` | No |
 | `TRUENAS_VERIFY_TLS` | Verify the TrueNAS HTTPS certificate. Off by default because home NAS boxes usually use a self-signed one | `false` (default) | No |
 
 ### Getting Started

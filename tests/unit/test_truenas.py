@@ -95,6 +95,35 @@ def test_pool_status_skips_unrelated_messages(truenas_env: None) -> None:
     assert status == {'alerts': 0, 'backup-disk-0': '3.42 TB'}
 
 
+def test_pool_status_applies_pool_aliases(truenas_env: None, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv('TRUENAS_POOL_ALIASES', 'backup-disk-0:disk-0,backup-disk-1:disk-1')
+    ws = FakeWebSocket([
+        CONNECTED,
+        result_for_last_request(True),
+        result_for_last_request(ALERTS),
+        result_for_last_request(POOLS),
+    ])
+    with patch('web_server.create_connection', return_value=ws):
+        status = web_server.TrueNASHandler().get_pool_status()
+
+    assert status == {'alerts': 1, 'disk-0': '3.42 TB', 'disk-1': '0.5 TB'}
+
+
+def test_pool_aliases_tolerate_spaces_and_skip_malformed_entries(truenas_env: None,
+                                                                 monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv('TRUENAS_POOL_ALIASES', ' backup-disk-0 : disk-0 , no-colon-here, :empty-name,')
+    ws = FakeWebSocket([
+        CONNECTED,
+        result_for_last_request(True),
+        result_for_last_request([]),
+        result_for_last_request(POOLS),
+    ])
+    with patch('web_server.create_connection', return_value=ws):
+        status = web_server.TrueNASHandler().get_pool_status()
+
+    assert status == {'alerts': 0, 'disk-0': '3.42 TB', 'backup-disk-1': '0.5 TB'}
+
+
 def test_pool_status_reports_ddp_error(truenas_env: None) -> None:
     ws = FakeWebSocket([
         CONNECTED,
