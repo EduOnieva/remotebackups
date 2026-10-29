@@ -119,16 +119,22 @@ echo "$CRON_SCHEDULE . /etc/environment; RSYNC_TIMEOUT=$SCHEDULED_RSYNC_TIMEOUT 
 chmod 0644 /etc/crontabs/root
 log_info "Cron job scheduled: $CRON_SCHEDULE (rsync timeout: ${SCHEDULED_RSYNC_TIMEOUT}s)"
 
-# Start web server in background (non-blocking if it fails)
+# Run cron and the web server as children and stop the container as soon as either
+# dies, so the restart policy brings both back instead of leaving a half-working container.
+log_info "Starting cron daemon..."
+crond -f -l 2 &
+CRON_PID=$!
+
 log_info "Starting enhanced web server on port 80..."
 python3 /src/web_server.py &
 WEB_PID=$!
-if kill -0 $WEB_PID 2>/dev/null; then
-    log_info "Web server started with PID $WEB_PID"
-else
-    log_warn "Web server failed to start, continuing without web interface"
-fi
+log_info "Supervising cron (PID $CRON_PID) and web server (PID $WEB_PID)"
 
-# Start cron daemon
-log_info "Starting cron daemon..."
-exec crond -f -l 2
+wait -n "$CRON_PID" "$WEB_PID" || true
+if kill -0 "$WEB_PID" 2>/dev/null; then
+    log_error "Cron daemon exited unexpectedly, stopping container"
+else
+    log_error "Web server exited unexpectedly, stopping container"
+fi
+kill "$CRON_PID" "$WEB_PID" 2>/dev/null || true
+exit 1
