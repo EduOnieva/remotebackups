@@ -288,6 +288,9 @@ Edit `backup_routes.json` (maps local paths to remote destinations):
 | `SSH_KEY_FILE`  | SSH private key filename                              | `id_rsa`               | Yes      |
 | `TZ`            | Timezone for container                                | `Europe/Madrid`         | No       |
 | `SCHEDULED_RSYNC_TIMEOUT` | Seconds of rsync inactivity before a scheduled run drops a route (`0` disables). Manual runs from the web interface never time out | `3600` (default) | No |
+| `TRUENAS_ENABLED` | Set to `true` to query the remote TrueNAS for alerts and pool free space at `/api/pool_status`. Everything else works without it | `false` (default) | No |
+| `REMOTE_API_TOKEN` | TrueNAS API key used when `TRUENAS_ENABLED=true` | `1-xxxx...` | Only with TrueNAS |
+| `TRUENAS_VERIFY_TLS` | Verify the TrueNAS HTTPS certificate. Off by default because home NAS boxes usually use a self-signed one | `false` (default) | No |
 
 ### Getting Started
 
@@ -307,6 +310,7 @@ Features:
 - 🔄 **Auto-refresh** - Live updates every 30 seconds
 - 📄 **Log Management** - Clear logs when needed
 - 💾 **System Status** - View load average and log file sizes
+- 🗄️ **TrueNAS Status** - `/api/pool_status` returns the sync error count plus, with `TRUENAS_ENABLED=true`, the TrueNAS alert count and free space per pool
 
 ## Usage Examples
 

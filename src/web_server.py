@@ -48,6 +48,11 @@ console_handler.setFormatter(formatter)
 logger.addHandler(file_handler)
 logger.addHandler(console_handler)
 
+def truenas_enabled() -> bool:
+    """The TrueNAS status integration is opt-in; without it the server is rsync-only."""
+    return os.environ.get('TRUENAS_ENABLED', 'false').lower() in ('1', 'true', 'yes')
+
+
 class TrueNASHandler:
     """Read alerts and free space per pool from a TrueNAS box over its DDP WebSocket API."""
 
@@ -518,7 +523,10 @@ class EnhancedLogHandler(http.server.SimpleHTTPRequestHandler):
                 else:
                     results['sync_errors'] = 0
 
-                results.update(TrueNASHandler().get_pool_status())
+                if truenas_enabled():
+                    results.update(TrueNASHandler().get_pool_status())
+                else:
+                    results['truenas'] = 'disabled'
                 self.wfile.write(json.dumps(results).encode())
              
             else:
@@ -661,7 +669,8 @@ if __name__ == '__main__':
             httpd = socketserver.TCPServer(('', PORT), EnhancedLogHandler)
         
         # Probe TrueNAS off the main thread so an unreachable NAS does not delay serving
-        threading.Thread(target=TrueNASHandler().get_pool_status, daemon=True).start()
+        if truenas_enabled():
+            threading.Thread(target=TrueNASHandler().get_pool_status, daemon=True).start()
 
         with httpd:
             logger.info(f'Enhanced web server running on port {PORT}')

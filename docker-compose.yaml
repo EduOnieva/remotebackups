@@ -42,6 +42,7 @@ services:
     environment:
       - REMOTE_USER=your_remote_username
       - REMOTE_HOST=100.x.x.x  # Your Tailscale IP
+      - TRUENAS_ENABLED=false  # true adds TrueNAS alerts and pool free space to /api/pool_status; needs REMOTE_API_TOKEN
       - REMOTE_API_TOKEN=your_truenas_api_key_here
       - CRON_SCHEDULE=30 2 * * 1  # Weekly on Monday at 2:30 AM
       - SCHEDULED_RSYNC_TIMEOUT=3600  # Seconds of rsync inactivity before a scheduled run drops a route; 0 disables. Manual runs have no timeout

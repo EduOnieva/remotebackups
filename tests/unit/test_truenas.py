@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Unit tests for the TrueNAS DDP client in web_server.py."""
 
+import io
 import json
 from typing import Any, Callable, Dict, List, Union
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -124,3 +125,37 @@ def test_pool_status_without_token_does_not_connect(monkeypatch: pytest.MonkeyPa
 
     assert set(status) == {'error'}
     connect.assert_not_called()
+
+
+def pool_status_handler() -> web_server.EnhancedLogHandler:
+    """A handler wired to buffers instead of a socket, pointed at the pool status endpoint."""
+    with patch.object(web_server.EnhancedLogHandler, '__init__', return_value=None):
+        handler = web_server.EnhancedLogHandler()
+    handler.path = '/api/pool_status'
+    handler.wfile = io.BytesIO()
+    handler.send_response = Mock()
+    handler.send_header = Mock()
+    handler.end_headers = Mock()
+    return handler
+
+
+def test_pool_status_endpoint_is_rsync_only_when_disabled(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv('TRUENAS_ENABLED', raising=False)
+    handler = pool_status_handler()
+    with patch('web_server.LOG_FILE', '/nonexistent/sync.log'), \
+         patch('web_server.create_connection') as connect:
+        handler.do_GET()
+
+    assert json.loads(handler.wfile.getvalue()) == {'sync_errors': 0, 'truenas': 'disabled'}
+    connect.assert_not_called()
+
+
+def test_pool_status_endpoint_merges_truenas_when_enabled(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv('TRUENAS_ENABLED', 'true')
+    handler = pool_status_handler()
+    with patch('web_server.LOG_FILE', '/nonexistent/sync.log'), \
+         patch.object(web_server.TrueNASHandler, 'get_pool_status',
+                      return_value={'alerts': 0, 'backup-disk-0': '3.42 TB'}):
+        handler.do_GET()
+
+    assert json.loads(handler.wfile.getvalue()) == {'sync_errors': 0, 'alerts': 0, 'backup-disk-0': '3.42 TB'}
