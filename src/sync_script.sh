@@ -157,6 +157,12 @@ log_info "Acquired sync lock successfully"
   failure_count=0
   total_transferred=0
   total_start_time=$(date +%s)
+  # Build optional rsync flags from environment (applies to all routes)
+  RSYNC_EXTRA_OPTS=()
+  if [ "${RSYNC_DELETE:-}" = "1" ] || [ "${RSYNC_DELETE:-}" = "true" ]; then
+    RSYNC_EXTRA_OPTS+=("--delete")
+    log_warn "RSYNC_DELETE enabled: rsync will remove extraneous files on destination"
+  fi
 
   # Process each route with enhanced error handling
   while IFS=$'\t' read -r src dst; do
@@ -197,7 +203,7 @@ log_info "Acquired sync lock successfully"
 
     # Execute rsync with comprehensive options and error handling
     start_time=$(date +%s)
-      if rsync -avz --partial --stats \
+      if rsync -avz "${RSYNC_EXTRA_OPTS[@]}" --partial --stats \
       --exclude='*.Trash*' --exclude='lost+found' --exclude='System Volume Information' \
       --exclude='.DS_Store' --exclude='Thumbs.db' --exclude='desktop.ini' --exclude='sync.log' \
       --exclude='.venv' \

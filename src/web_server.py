@@ -215,8 +215,8 @@ class EnhancedLogHandler(http.server.SimpleHTTPRequestHandler):
         .btn:hover { background: #30363d; }
         .btn.primary { background: #238636; border-color: #2ea043; }
         .btn.primary:hover { background: #2ea043; }
-        .btn.warning { background: #bb800a; border-color: #d29922; }
-        .btn.warning:hover { background: #d29922; }
+        .btn.warning { background: #da3633; border-color: #f85149; }
+        .btn.warning:hover { background: #f85149; }
         .btn.danger { background: #da3633; border-color: #f85149; }
         .btn.danger:hover { background: #f85149; }
         .log-container { display: grid; grid-template-columns: 1fr; gap: 20px; }
@@ -267,7 +267,8 @@ class EnhancedLogHandler(http.server.SimpleHTTPRequestHandler):
                 <span style="color: {status_color}; font-weight: bold;">{sync_status}</span>
             </div>
             <div class="controls">
-                <button class="btn primary" onclick="runSync()">▶️ Run Sync Now</button>
+                <button class="btn primary" onclick="runSync(false,false)">▶️ Run Sync Now</button>
+                <button class="btn warning" onclick="runSync(true,true)">⚠️ Run With Delete</button>
                 <button class="btn" onclick="location.reload()">🔄 Refresh</button>
                 <button class="btn" onclick="clearLogs()">🗑️ Clear Logs</button>
             </div>
@@ -330,14 +331,25 @@ class EnhancedLogHandler(http.server.SimpleHTTPRequestHandler):
             }}
         }}
 
-        function runSync() {{
-            if (confirm('Run sync script now? This may take several minutes.')) {{
-                showNotification('Sync started! Check logs for progress...', 'info');
-                apiRequest('/run', 'POST')
+        function runSync(withDelete = false, confirmBefore = false) {{
+            const confirmMsg = 'Run sync script now with --delete? This will remove extraneous files on the destination and may take several minutes.';
+
+            const doRun = () => {{
+                showNotification(withDelete ? 'Sync started with delete enabled! Check logs for progress...' : 'Sync started! Check logs for progress...', withDelete ? 'warning' : 'info');
+                const data = withDelete ? {{ delete: true }} : null;
+                apiRequest('/run', 'POST', data)
                 .then(() => {{
                     setTimeout(() => location.reload(), 2000);
                 }})
                 .catch(err => showNotification(`Error starting sync: ${{err.message}}`, 'error'));
+            }};
+
+            if (withDelete && confirmBefore) {{
+                if (confirm(confirmMsg)) {{
+                    doRun();
+                }}
+            }} else {{
+                doRun();
             }}
         }}
         
@@ -346,7 +358,7 @@ class EnhancedLogHandler(http.server.SimpleHTTPRequestHandler):
             if (e.ctrlKey || e.metaKey) {{
                 switch(e.key) {{
                     case 'r': e.preventDefault(); location.reload(); break;
-                    case 'Enter': e.preventDefault(); runSync(); break;
+                    case 'Enter': e.preventDefault(); runSync(false,false); break;
                 }}
             }}
         }});
@@ -470,17 +482,19 @@ class EnhancedLogHandler(http.server.SimpleHTTPRequestHandler):
                 
             elif self.path == '/run':
                 try:
-                    # Run sync script in background using secure subprocess
-                    with open('/config/logs/sync.log', 'a') as log_file:
-                        process = subprocess.Popen(
-                            ['/bin/bash', '/src/sync_script.sh'],
-                            stdout=log_file,
-                            stderr=subprocess.STDOUT,
-                            cwd='/',
-                            env=os.environ.copy(),
-                            start_new_session=True
-                        )
-                    
+                    # Prepare environment for subprocess; allow delete flag from request JSON
+                    proc_env = os.environ.copy()
+                    if request_data and isinstance(request_data, dict) and request_data.get('delete'):
+                        proc_env['RSYNC_DELETE'] = '1'
+                        logger.info('Starting sync with RSYNC_DELETE enabled via web interface')
+
+                    process = subprocess.Popen(
+                        ['/bin/bash', '/src/sync_script.sh'],
+                        stderr=subprocess.STDOUT,
+                        cwd='/',
+                        env=proc_env,
+                        start_new_session=True
+                    )
                     send_secure_response(200)
                     self.wfile.write(
                         json.dumps(
