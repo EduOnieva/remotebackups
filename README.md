@@ -6,7 +6,7 @@ Dockerhub page: https://hub.docker.com/r/insrch/rsync
 
 ## Overview
 
-This project is an enhanced version of the original `insrch/rsync` Docker image, now featuring Tailscale integration, a web management interface, and JSON-based route configuration. The project includes a comprehensive test suite with 82% code coverage and full containerized testing infrastructure.
+This project is an enhanced version of the original `insrch/rsync` Docker image, now featuring Tailscale integration, a web management interface, and JSON-based route configuration. The project includes a containerized test suite with an enforced coverage threshold.
 
 **Key Enhancements:**
 - 🔗 **Tailscale VPN Integration** - Secure networking for remote backups
@@ -15,14 +15,14 @@ This project is an enhanced version of the original `insrch/rsync` Docker image,
 - 🔒 **Enhanced SSH Security** - Improved connection handling and error reporting
 - 📊 **Real-time Monitoring** - Live sync progress and detailed logging
 - 🎯 **Multi-route Support** - Backup multiple directories in one operation
-- 🧪 **Comprehensive Testing** - 119 tests with 82% coverage, containerized test environment
+- 🧪 **Comprehensive Testing** - Containerized pytest suite with an enforced coverage threshold
 
 Instead of syncing a single remote directory, this version allows you to define multiple local-to-remote backup routes using a JSON configuration file, all accessible through a user-friendly web interface.
 
 ## Project Status
 
 ✅ **Production Ready** - Core functionality tested and stable  
-✅ **Comprehensive Testing** - 119 tests passing with 82% code coverage  
+✅ **Comprehensive Testing** - Containerized pytest suite with an enforced coverage threshold  
 ✅ **Container-based Testing** - No local setup required for development  
 ✅ **Multi-stage Docker Build** - Optimized production and testing images  
 ✅ **Real File Operations Testing** - Integration tests with actual file I/O  
@@ -105,12 +105,11 @@ networks:
 
 ### Container-Based Testing Infrastructure
 
-The project features a comprehensive test suite with **119 tests** achieving **82% code coverage**, all running in Docker containers with no local setup required.
+The test suite runs inside a Docker container, so no local Python setup is required. The coverage threshold is enforced by `pytest.ini`.
 
 #### Test Suite Overview
 
-- **119 total tests** (100% pass rate)
-- **82% code coverage** (549 statements, 99 uncovered)
+- **Coverage gate** - The run fails when coverage drops below the threshold in `pytest.ini`
 - **Container-based execution** - No local Python installation needed
 - **Multi-stage Docker builds** - Optimized for both production and testing
 - **Real file operations** - Actual I/O testing with temporary files
@@ -120,26 +119,27 @@ The project features a comprehensive test suite with **119 tests** achieving **8
 
 ```bash
 # Run all tests with coverage
-docker compose --profile test run --rm rsync-backup-test python -m pytest tests/ --cov=src --cov-report=term-missing
+docker compose --profile testing run --rm rsync-backup-test python -m pytest tests/ --cov=src --cov-report=term-missing
 
 # Run specific test categories
-docker compose --profile test run --rm rsync-backup-test python -m pytest tests/unit/
-docker compose --profile test run --rm rsync-backup-test python -m pytest tests/integration/
+docker compose --profile testing run --rm rsync-backup-test python -m pytest tests/unit/
+docker compose --profile testing run --rm rsync-backup-test python -m pytest tests/integration/
 
 # Interactive debugging shell
-docker compose --profile test run --rm rsync-backup-test bash
+docker compose --profile testing run --rm rsync-backup-test bash
 ```
 
 #### Test Categories
 
-**Unit Tests (63 tests)**
+**Unit Tests**
 - Log parsing and error summarization
 - Path validation and security checks
 - Web handler request/response processing
 - Real file operations with temporary files
 - Sync status detection algorithms
+- TrueNAS DDP client against a scripted WebSocket
 
-**Integration Tests (56 tests)**
+**Integration Tests**
 - SSH connectivity and authentication
 - Complete backup workflow simulation
 - Web server file operations
@@ -150,13 +150,14 @@ docker compose --profile test run --rm rsync-backup-test bash
 
 **Multi-stage Docker Build**
 ```dockerfile
-# Production stage - minimal Alpine Linux
-FROM alpine:latest as production
+# Shared base - pinned Alpine with rsync, ssh, jq and python3
+FROM alpine:3.24.3 AS base
 
-# Testing stage - includes pytest, coverage, mock tools
-FROM production as testing
-RUN apk add --no-cache python3-dev py3-pip gcc musl-dev
-RUN pip3 install --break-system-packages pytest pytest-cov pytest-mock pytest-timeout
+# Production stage - entrypoint, sync script and web server only
+FROM base AS production
+
+# Testing stage - adds pinned pytest, coverage and mocking tools plus the tests
+FROM base AS testing
 ```
 
 **Test Service Configuration**
@@ -167,17 +168,19 @@ rsync-backup-test:
     dockerfile: build/Dockerfile
     target: testing
   volumes:
-    - .:/workspace
-  working_dir: /workspace
+    # Source and tests are mounted, so edits are picked up without a rebuild
+    - ./src:/src
+    - ./tests:/tests
+    - ./pytest.ini:/pytest.ini
   environment:
-    - PYTHONPATH=/workspace/src
+    - PYTHONPATH=/src
   profiles:
-    - test
+    - testing
 ```
 
 #### Coverage Analysis
 
-**Covered Areas (82% total)**
+**Covered Areas**
 - ✅ HTTP request handling and routing
 - ✅ Log file reading and parsing
 - ✅ Error summarization and truncation
@@ -186,8 +189,9 @@ rsync-backup-test:
 - ✅ File I/O operations and error handling
 - ✅ JSON configuration parsing
 - ✅ SSH connectivity validation
+- ✅ TrueNAS status client (handshake, authentication, alerts, pools, error paths)
 
-**Remaining Uncovered (99 lines)**
+**Remaining Uncovered**
 - Server startup and socket initialization
 - Some exception paths in file operations  
 - Configuration edge cases
@@ -234,34 +238,23 @@ def is_running_in_container():
 
 **All Tests with Coverage**
 ```bash
-docker compose --profile test run --rm rsync-backup-test \
+docker compose --profile testing run --rm rsync-backup-test \
   python -m pytest tests/ --cov=src --cov-report=term-missing -v
 ```
 
 **Specific Test Files**
 ```bash
 # Unit tests only
-docker compose --profile test run --rm rsync-backup-test \
+docker compose --profile testing run --rm rsync-backup-test \
   python -m pytest tests/unit/ -v
 
 # Integration tests only  
-docker compose --profile test run --rm rsync-backup-test \
+docker compose --profile testing run --rm rsync-backup-test \
   python -m pytest tests/integration/ -v
 
 # Advanced coverage tests
-docker compose --profile test run --rm rsync-backup-test \
+docker compose --profile testing run --rm rsync-backup-test \
   python -m pytest tests/integration/test_advanced_coverage.py -v
-```
-
-**Test Output Example**
-```
-119 passed in 6.56s
-
-Name                Stmts   Miss  Cover   Missing
--------------------------------------------------
-src/web_server.py     549     99    82%   49, 77-79, 126-127, ...
--------------------------------------------------
-TOTAL                 549     99    82%
 ```
 
 ### JSON Routes Configuration
@@ -309,7 +302,8 @@ Features:
 - ▶️ **Manual Sync Trigger** - Start backups on-demand
 - 🔄 **Auto-refresh** - Live updates every 30 seconds
 - 📄 **Log Management** - Clear logs when needed
-- 💾 **System Status** - View load average and log file sizes
+- 💾 **System Status** - Log file size and the state of the last run (Running, Completed, Completed with errors, Aborted)
+- ⚠️ **Run With Delete** - A manual run that also passes `--delete` to rsync, so files removed locally disappear from the backup. Asks for confirmation first
 - 🗄️ **TrueNAS Status** - `/api/pool_status` returns the sync error count plus, with `TRUENAS_ENABLED=true`, the TrueNAS alert count and free space per pool
 
 ## Usage Examples
@@ -332,8 +326,8 @@ ssh-copy-id -i ~/.ssh/backup_key.pub user@remote_host
 
 ```
 your_project/
-├── docker-compose.example.yaml  # Template configuration
-├── docker-compose.yaml          # Your actual configuration (gitignored)
+├── docker-compose.yaml          # Template configuration (tracked)
+├── docker-compose.override.yml  # Your real values, merged automatically (gitignored)
 ├── build/
 │   ├── Dockerfile
 │   └── entrypoint.sh
@@ -383,15 +377,16 @@ rsync-tailscale-docker/
 │   └── entrypoint.sh               # Container startup script
 ├── src/
 │   ├── sync_script.sh              # Main backup orchestration
-│   └── web_server.py               # Web interface and API (549 lines, 82% tested)
-└── tests/                           # Comprehensive test suite (119 tests)
+│   └── web_server.py               # Web interface, API and TrueNAS status client
+└── tests/                           # Test suite (runs in the testing image)
     ├── conftest.py                  # Global test fixtures and configuration
-    ├── unit/                        # Unit tests (52 tests)
+    ├── unit/                        # Unit tests
     │   ├── test_log_parsing.py      # Log processing and error detection
     │   ├── test_path_validation.py  # Security and input validation
     │   ├── test_real_file_operations.py # Actual file I/O operations
+    │   ├── test_truenas.py          # TrueNAS DDP client
     │   └── test_web_handlers.py     # HTTP endpoint testing
-    └── integration/                 # Integration tests (67 tests)
+    └── integration/                 # Integration tests
         ├── test_advanced_coverage.py # Advanced edge case coverage
         ├── test_e2e_workflow.py     # End-to-end workflow simulation
         ├── test_real_file_integration.py # Real file system integration
@@ -403,7 +398,7 @@ rsync-tailscale-docker/
 
 1. **Testing First**: All new features must include comprehensive tests
 2. **Container Development**: Use Docker for consistent development environment
-3. **Coverage Maintenance**: Maintain or improve the 82% test coverage
+3. **Coverage Maintenance**: Keep the suite above the threshold set in `pytest.ini`
 4. **Real File Testing**: Include actual file operations in integration tests
 5. **Security Focus**: Validate all inputs and test injection prevention
 
@@ -415,7 +410,7 @@ git clone <repository>
 cd rsync-tailscale-docker
 
 # 2. Run tests to ensure everything works
-docker compose --profile test run --rm rsync-backup-test \
+docker compose --profile testing run --rm rsync-backup-test \
   python -m pytest tests/ --cov=src --cov-report=term-missing
 
 # 3. Make changes to source code
@@ -425,15 +420,15 @@ docker compose --profile test run --rm rsync-backup-test \
 # Add tests in tests/unit/ or tests/integration/
 
 # 5. Run specific tests during development
-docker compose --profile test run --rm rsync-backup-test \
+docker compose --profile testing run --rm rsync-backup-test \
   python -m pytest tests/unit/test_your_new_test.py -v
 
 # 6. Run full test suite before committing
-docker compose --profile test run --rm rsync-backup-test \
+docker compose --profile testing run --rm rsync-backup-test \
   python -m pytest tests/ --cov=src --cov-report=term-missing
 
 # 7. Interactive debugging when needed
-docker compose --profile test run --rm rsync-backup-test bash
+docker compose --profile testing run --rm rsync-backup-test bash
 ```
 
 ### Testing New Features
@@ -501,7 +496,7 @@ This enhanced version was developed with comprehensive testing infrastructure an
 - **Multi-stage Docker Builds** - Production optimization with testing capabilities
 
 **Key Contributions:**
-- 🧪 **119 comprehensive tests** achieving 82% code coverage
+- 🧪 **Comprehensive test suite** with an enforced coverage threshold
 - 🐳 **Advanced Docker patterns** with multi-stage builds and testing profiles
 - 🔒 **Security-first approach** with extensive input validation testing
 - 📊 **Real file operations testing** using temporary file systems
