@@ -6,9 +6,13 @@ import logging.handlers
 import os
 import signal
 import socketserver
+import ssl
 import subprocess
 import sys
+import uuid
 
+
+from websocket import create_connection
 from datetime import datetime
 from typing import Any, List, Optional, Tuple
 
@@ -42,6 +46,205 @@ console_handler.setFormatter(formatter)
 # Add handlers
 logger.addHandler(file_handler)
 logger.addHandler(console_handler)
+
+ssl_context = ssl.create_default_context()
+ssl_context.check_hostname = False
+ssl_context.verify_mode = ssl.CERT_NONE
+
+
+class TrueNASHandler:
+    """Handler for TrueNAS DDP (Distributed Data Protocol) over WebSocket API"""
+    
+    def __init__(self):
+        # Get environment variables
+        self.remote_host = os.environ.get("REMOTE_HOST")
+        self.remote_api_token = os.environ.get("REMOTE_API_TOKEN")
+        self.request_id  = str(uuid.uuid4())
+
+
+    def _call_ddp_method(self, ws, method: str, params: Optional[List] = None) -> Any:
+        """
+        Make a DDP (Distributed Data Protocol) method call over WebSocket
+        
+        Args:
+            ws: WebSocket connection
+            method: DDP method name (e.g., "pool.query")
+            params: Optional list of parameters
+            
+        Returns:
+            Result from the DDP call
+        """
+        # Build DDP method request
+        request = {
+            "id": self.request_id,
+            "msg": "method",
+            "method": method,
+            "params": params or []
+        }
+        
+        # Send request
+        logger.info(f"Sending DDP request: method={method}")
+        try:
+            ws.send(json.dumps(request))
+        except Exception as e:
+            raise RuntimeError(f"Failed to send DDP request: {str(e)}")
+        
+        # Receive and parse response
+        max_attempts = 5
+        for attempt in range(max_attempts):
+            try:
+                response_text = ws.recv()
+                
+                # Skip empty responses
+                if not response_text or not response_text.strip():
+                    logger.info(f"Received empty response (attempt {attempt + 1}/{max_attempts})")
+                    continue
+                
+                logger.info(f"Received response (attempt {attempt + 1})...")
+                response = json.loads(response_text)
+                
+                # Handle "connected" message from TrueNAS
+                if response.get("msg") == "connected":
+                    logger.info(f"Received connection confirmation, session: {response.get('session', 'unknown')}")
+                    continue
+                
+                # Handle "pong" messages (keep-alive responses)
+                if response.get("msg") == "pong":
+                    logger.info("Received pong message, waiting for actual response...")
+                    continue
+                
+                # Handle DDP "result" message
+                if response.get("msg") == "result":
+                    # Check if this is the response for our request
+                    if response.get("id") == request["id"]:
+                        result = response.get("result")
+                        if result is None and "error" in response:
+                            error = response["error"]
+                            error_msg = f"DDP Error: {error}"
+                            raise RuntimeError(error_msg)
+                        logger.info(f"Successfully received result for method {method}")
+                        return result
+                    else:
+                        logger.info(f"Received result for different request ID, continuing...")
+                        continue
+                
+                # If we get here, it's an unexpected message format
+                logger.warning(f"Unexpected message format: {response_text[:200]}")
+                
+            except json.JSONDecodeError as e:
+                logger.error(f"JSON decode error on attempt {attempt + 1}: {e}, response: {response_text[:100] if response_text else 'empty'}")
+                if attempt == max_attempts - 1:
+                    raise RuntimeError(f"Failed to parse JSON response after {max_attempts} attempts: {str(e)}")
+        
+        raise RuntimeError(f"No valid DDP response received after {max_attempts} attempts")
+
+    def get_pool_status(self) -> dict:
+        """
+        Get pool status and alerts from TrueNAS
+        
+        Returns:
+            Dictionary containing pool information and alert count
+        """
+        if not self.remote_host or not self.remote_api_token:
+            logger.error("REMOTE_HOST or REMOTE_API_TOKEN not configured.")
+            return {"error": "REMOTE_HOST or REMOTE_API_TOKEN not configured"}
+        
+        ws = None
+        try:
+            # Connect to the WebSocket API
+            ws_url = f"wss://{self.remote_host}/websocket"
+            logger.info(f"Connecting to TrueNAS WebSocket: {ws_url}")
+            
+            # Create WebSocket connection with authentication and timeout
+            ws = create_connection(
+                ws_url,
+                sslopt={"cert_reqs": ssl.CERT_NONE},
+                timeout=30  # 30 second timeout for connection and operations
+            )
+            logger.info("WebSocket connection established successfully.")
+            
+            # Send DDP "connect" message to initiate the protocol
+            connect_msg = {
+                "msg": "connect",
+                "version": "1",
+                "support": ["1"]
+            }
+            ws.send(json.dumps(connect_msg))
+            logger.info("Sent DDP connect message")
+            
+            # Wait for "connected" response
+            try:
+                initial_response = ws.recv()
+                initial_data = json.loads(initial_response)
+                if initial_data.get("msg") == "connected":
+                    logger.info(f"DDP connection confirmed, session: {initial_data.get('session', 'unknown')}")
+                else:
+                    logger.warning(f"Unexpected initial response: {initial_response[:200]}")
+            except Exception as e:
+                logger.error(f"Error during DDP handshake: {e}")
+                raise RuntimeError(f"Failed to complete DDP handshake: {e}")
+            
+            # Authenticate using API key
+            logger.info("Authenticating with API key...")
+            auth_result = self._call_ddp_method(ws, "auth.login_with_api_key", params=[self.remote_api_token])
+            if not auth_result:
+                raise RuntimeError("Authentication failed - API key was rejected")
+            logger.info("Successfully authenticated with TrueNAS")
+            
+            # Get alerts using DDP
+            alerts_data = self._call_ddp_method(ws, "alert.list", params=[])
+            if not alerts_data:
+                logger.info("No alerts returned from TrueNAS")
+                alerts_data = []
+            
+            # Get pool information using DDP
+            pool_data = self._call_ddp_method(ws, "pool.query", params=[])
+            if not pool_data:
+                logger.warning("No pool data returned from TrueNAS")
+                pool_data = []
+            
+            # Build result dictionary
+            result = {}
+            result['alerts'] = len(alerts_data)
+            
+            # Log alert information
+            if alerts_data:
+                logger.warning(f"TrueNAS Alerts ({len(alerts_data)} total)")
+                for i, alert in enumerate(alerts_data, 1):
+                    logger.warning(f"  Alert {i}: {alert.get('formatted', alert.get('text', 'Unknown'))}")
+            else:
+                logger.info("No TrueNAS alerts")
+            
+            # Process pool data to compute disk percentages and free space in TB
+            for i, pool in enumerate(pool_data):
+                pool_name = pool.get('name', f'pool-{i}')
+                pool_id = pool.get('id', i + 1)
+                disk_name = f"disk-{pool_id - 1}"  # id=1 becomes disk-0, id=2 becomes disk-1
+                
+                free_bytes = pool.get("free", 0)
+                total_bytes = pool.get("size", 1)  # Avoid division by zero
+                
+                free_tb = round(free_bytes / (1024**4), 2)  # Convert bytes to TB
+                #free_percentage = round((free_bytes / total_bytes) * 100, 1) if total_bytes > 0 else 0
+                
+                result[disk_name] = f"{free_tb} TB"
+                logger.info(f"Pool '{pool_name}' (ID: {pool_id}): {result[disk_name]} free")
+            
+            logger.info(f"Pool status retrieved successfully: {result['alerts']} alert(s), {len(pool_data)} pool(s)")
+            return result
+        
+        except Exception as e:
+            logger.error(f"Failed to communicate with TrueNAS WebSocket API: {e}", exc_info=True)
+            return {"error": f"Failed to connect to TrueNAS: {str(e)}"}
+        
+        finally:
+            # Always close the WebSocket connection
+            if ws:
+                try:
+                    ws.close()
+                    logger.debug("WebSocket connection closed")
+                except Exception as e:
+                    logger.warning(f"Error closing WebSocket: {e}")
 
 class EnhancedLogHandler(http.server.SimpleHTTPRequestHandler):
     
@@ -424,6 +627,41 @@ class EnhancedLogHandler(http.server.SimpleHTTPRequestHandler):
                     <line x1="10" y1="16" x2="18" y2="16" stroke="#161b22" stroke-width="1"/>
                 </svg>'''
                 self.wfile.write(svg_favicon.encode())
+            
+            elif self.path == '/api/pool_status':
+                # JSON API endpoint for pool status from remote TrueNAS
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+
+                results = {}
+
+                # Add the sync errors count using existing error summary function
+                if os.path.exists(LOG_FILE):
+                    try:
+                        with open(LOG_FILE, 'r', encoding='utf-8') as f:
+                            lines = [line.rstrip('\n') for line in f.readlines()]
+                        error_count, _ = self._generate_error_summary(lines)
+                        logger.info(f'Counted {error_count} sync errors from log file')
+                        results['sync_errors'] = error_count
+                    except Exception as e:
+                        logger.warning(f'Could not count sync errors: {e}')
+                        results['sync_errors'] = 0
+                else:
+                    results['sync_errors'] = 0
+
+                try:
+                    logger.info('Received request for pool status from TrueNAS')
+                    results.update(TrueNASHandler().get_pool_status())
+                except Exception as e:
+                    if 'error' not in results:
+                        results['error'] = f'Error retrieving pool status: {str(e)}'
+                if 'error' in results:
+                    logger.error(f'TrueNASHandler error: {results["error"]}')
+                
+                self.wfile.write(json.dumps(results).encode())
+                return results
+             
             else:
                 self.send_error(404, 'Not found')
         except Exception as e:
@@ -552,7 +790,7 @@ if __name__ == '__main__':
     try:
         # Ensure log directory exists
         os.makedirs(os.path.dirname(SERVER_LOG_FILE), exist_ok=True)
-        
+
         # Try to bind to port 80, fall back to 8080 if permission denied
         try:
             httpd = socketserver.TCPServer(('', PORT), EnhancedLogHandler)
@@ -563,10 +801,18 @@ if __name__ == '__main__':
             PORT = 8080
             httpd = socketserver.TCPServer(('', PORT), EnhancedLogHandler)
         
+        # Try TrueNAS WebSocket connection on startup to log any immediate issues
+        try:
+            logger.info('Testing TrueNAS WebSocket connection on startup...')
+            TrueNASHandler().get_pool_status()
+            logger.info('TrueNAS WebSocket connection successful on startup')
+        except Exception as e:
+            logger.error(f'Error connecting to TrueNAS WebSocket on startup: {e}')
+
         with httpd:
             logger.info(f'Enhanced web server running on port {PORT}')
             httpd.serve_forever()
-            
+    
     except Exception as e:
         logger.error(f'Failed to start web server: {e}')
         sys.exit(1)

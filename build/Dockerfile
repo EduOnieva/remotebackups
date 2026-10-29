@@ -2,7 +2,11 @@
 FROM alpine:latest as base
 
 # Install common dependencies
-RUN apk add --no-cache openssh-client rsync util-linux bash tzdata jq python3 py3-pip
+RUN apk add --no-cache openssh-client git rsync util-linux bash tzdata jq python3 py3-pip
+
+# Install requests for web server
+RUN pip3 install --no-cache-dir --break-system-packages requests==2.32.5
+RUN pip3 install --no-cache-dir --break-system-packages websocket-client==1.9.0
 
 # Production stage
 FROM base as production

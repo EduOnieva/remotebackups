@@ -42,6 +42,7 @@ services:
     environment:
       - REMOTE_USER=your_remote_username
       - REMOTE_HOST=100.x.x.x  # Your Tailscale IP
+      - REMOTE_API_TOKEN=your_truenas_api_key_here
       - CRON_SCHEDULE=30 2 * * 1  # Weekly on Monday at 2:30 AM
       - SSH_KEY_FILE=id_rsa
       - TZ=Europe/Madrid
