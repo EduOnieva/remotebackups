@@ -1,0 +1,55 @@
+# remotebackups configuration
+#
+# This file is read at startup and again at the start of every run, so editing the
+# folders never needs a restart. Environment variables override the values here;
+# the recommended split is: connection and secrets in the environment, folders and
+# rsync options in this file. Every key is optional and the defaults are shown.
+
+# The host that receives the backups. Usually set with REMOTE_HOST and REMOTE_USER.
+remote:
+  # host: 100.64.0.9          # IP or MagicDNS name
+  # user: backup
+  port: 22                    # REMOTE_PORT
+  # ssh_key: id_ed25519       # file under /config/ssh, or an absolute path (SSH_KEY).
+                              # Auto-detected when exactly one key lives in /config/ssh
+  # password: null            # SSH_PASSWORD; key auth is the default and the recommendation
+  host_key_policy: tofu       # tofu: trust on first use and pin | strict: must already be known | insecure
+  # host_key: null            # a pinned "ssh-ed25519 AAAA..." line; implies strict
+
+schedule:
+  cron: "30 2 * * 1"          # CRON_SCHEDULE; empty or null disables scheduled runs
+  rsync_timeout: 3600         # SCHEDULED_RSYNC_TIMEOUT: seconds of rsync inactivity before a
+                              # scheduled run gives up on a folder. 0 disables. Manual runs never time out
+
+rsync:
+  options: ["-a", "-v", "-z", "--partial", "--stats"]   # base flags; --delete and --timeout are decided per run
+  preserve_ownership: false   # true keeps owner and group; needs a root remote user (TrueNAS users are not)
+  extra_options: []           # appended to every folder, e.g. ["--bwlimit=20m"] (RSYNC_EXTRA_OPTIONS)
+  excludes: ["*.Trash*", "lost+found", "System Volume Information", ".DS_Store", "Thumbs.db", "desktop.ini", ".venv"]
+
+# One entry per folder to back up. `source` is the path inside the container, which is the
+# read-only bind mount from your compose file. `destination` is the path on the remote host.
+folders: []
+#  - source: /data/documents
+#    destination: /mnt/backup/documents
+#    name: documents           # optional: defaults to the last part of source; must be unique
+#    excludes: ["*.tmp"]       # added to rsync.excludes for this folder
+#    extra_options: []
+#    allow_delete: true        # false makes "Run with delete" skip --delete for this folder
+#    enabled: true
+
+# Optional TrueNAS SCALE status (alert count and free space per pool) for /api/pool_status.
+truenas:
+  enabled: auto               # auto: on when an API key is set | true | false (TRUENAS_ENABLED)
+  # host: null                # TRUENAS_HOST; defaults to remote.host
+  # api_key: null             # TRUENAS_API_KEY; prefer the environment or FILE__TRUENAS_API_KEY
+  verify_tls: false           # TRUENAS_VERIFY_TLS; home NAS boxes usually have a self-signed certificate
+  pool_aliases: {}            # rename pools in the response, e.g. {tank: disk-0} (TRUENAS_POOL_ALIASES=tank:disk-0)
+  cache_seconds: 30
+
+ui:
+  dark_theme: true            # UI_DARK_THEME
+
+history:
+  keep_days: 40               # HISTORY_KEEP_DAYS: runs older than this are deleted
+  max_log_bytes: 52428800     # per-run log cap (50 MiB); beyond it rsync lines are counted, not stored

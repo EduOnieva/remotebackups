@@ -10,7 +10,7 @@ dist/
 docker-compose.override.yml
 
 # Sensitive files
-config/
+/config/
 .ssh/
 *.key
 *.pem
