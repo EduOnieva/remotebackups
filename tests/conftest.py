@@ -1,10 +1,18 @@
 #!/usr/bin/env python3
 """Pytest configuration and shared fixtures for rsync-tailscale-docker tests."""
 
+import json
 import os
 import tempfile
-import json
+from typing import Any, Dict, Generator
+from unittest.mock import Mock, patch
+
 import pytest
+
+# Resolved through pythonpath=src (pytest.ini) or PYTHONPATH=/src (test image), never as
+# the `src` package: importing both ways loads the module twice and patches miss one copy.
+from web_server import EnhancedLogHandler
+
 
 @pytest.fixture
 def mock_sync_environment():
@@ -43,9 +51,6 @@ def mock_sync_environment():
             'remote_host': '192.168.1.100',
             'remote_user': 'testuser'
         }
-import pytest
-from unittest.mock import Mock, patch
-from typing import Generator, Dict, Any
 
 
 @pytest.fixture
@@ -77,10 +82,8 @@ def sample_routes_json() -> Dict[str, str]:
 @pytest.fixture
 def mock_log_handler():
     """Mock log handler for testing web interface."""
-    from src.web_server import EnhancedLogHandler
-    
-    with patch('src.web_server.LOG_FILE', '/tmp/test_sync.log'), \
-         patch('src.web_server.SERVER_LOG_FILE', '/tmp/test_server.log'):
+    with patch('web_server.LOG_FILE', '/tmp/test_sync.log'), \
+         patch('web_server.SERVER_LOG_FILE', '/tmp/test_server.log'):
         handler = EnhancedLogHandler()
         handler.setup()
         yield handler

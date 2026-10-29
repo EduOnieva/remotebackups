@@ -152,7 +152,8 @@ run_all_tests() {
 # Function to run tests with coverage
 run_tests_with_coverage() {
     print_status "Running tests with detailed coverage report..."
-    pytest tests/ --cov=src --cov-report=html --cov-report=term-missing --cov-branch --cov-fail-under=70
+    # The threshold lives in pytest.ini so every entry point enforces the same number
+    pytest tests/ --cov=src --cov-report=html --cov-report=term-missing --cov-branch
     
     if [[ -d "htmlcov" ]]; then
         print_success "Coverage report generated in htmlcov/index.html"
