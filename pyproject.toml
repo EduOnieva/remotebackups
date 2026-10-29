@@ -1,0 +1,122 @@
+[project]
+name = "remotebackups"
+version = "2.0.0a1"
+description = "Scheduled rsync backups of home-server folders to another host, with a web UI"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.13"
+authors = [{ name = "Eduardo Onieva" }]
+keywords = ["rsync", "backup", "docker", "self-hosted", "tailscale"]
+classifiers = [
+    "Environment :: Web Environment",
+    "Intended Audience :: System Administrators",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: System :: Archiving :: Backup",
+]
+dependencies = [
+    "croniter==6.2.4",
+    "fastapi==0.162.0",
+    "jinja2==3.1.6",
+    "pydantic==2.14.1",
+    "pydantic-settings==2.16.2",
+    "pyyaml==6.0.3",
+    "uvicorn==0.54.0",
+    "websocket-client==1.9.2",
+]
+
+[project.urls]
+Homepage = "https://github.com/EduOnieva/remotebackups"
+Issues = "https://github.com/EduOnieva/remotebackups/issues"
+
+[project.scripts]
+remotebackups = "remotebackups.cli:main"
+
+[dependency-groups]
+dev = [
+    "httpx==0.28.1",
+    "mypy==2.4.1",
+    "pytest==9.2.0",
+    "pytest-asyncio==1.4.1",
+    "pytest-cov==7.1.0",
+    "ruff==0.17.3",
+    "types-croniter==6.2.4.20261006",
+    "types-pyyaml==6.0.12.20260906",
+]
+
+[build-system]
+requires = ["hatchling==1.33.0"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/remotebackups"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+src = ["src", "tests"]
+# The v1 code under src/ and build/ is frozen until it is deleted; only the new package is linted
+extend-exclude = ["src/web_server.py", "backup", "build"]
+
+[tool.ruff.lint]
+select = [
+    "E", "W",    # pycodestyle
+    "F",         # pyflakes
+    "I",         # isort
+    "N",         # pep8-naming
+    "UP",        # pyupgrade
+    "B",         # bugbear
+    "SIM",       # simplify
+    "C4",        # comprehensions
+    "RET",       # return
+    "PIE",
+    "PERF",
+    "RUF",
+    "ASYNC",
+    "ANN",       # every signature typed
+    "PTH",       # pathlib over os.path
+    "T20",       # no print outside the CLI
+    "ERA",       # no commented-out code
+    "G",         # lazy logging args
+    "LOG",
+    "PLE", "PLW",
+]
+ignore = [
+    "ANN401",    # Any is sometimes the honest type for JSON payloads
+]
+
+[tool.ruff.lint.per-file-ignores]
+"src/remotebackups/cli.py" = ["T20"]
+"tests/**" = ["ANN", "PLR2004"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["remotebackups"]
+
+[tool.mypy]
+strict = true
+python_version = "3.13"
+plugins = ["pydantic.mypy"]
+files = ["src/remotebackups", "tests"]
+mypy_path = "src"
+explicit_package_bases = true
+warn_unreachable = true
+pretty = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests/unit", "tests/web"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+addopts = "-q --strict-markers --strict-config"
+filterwarnings = ["error"]
+markers = ["integration: needs the docker compose test stack"]
+
+[tool.coverage.run]
+source = ["remotebackups"]
+branch = true
+omit = ["*/__main__.py"]
+
+[tool.coverage.report]
+fail_under = 85
+show_missing = true
+skip_covered = true

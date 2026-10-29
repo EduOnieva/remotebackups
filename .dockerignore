@@ -56,3 +56,8 @@ docker-compose.override.yml
 # Exclude local configuration that shouldn't be in container
 .env.local
 local_config.*
+# Never ship the owner's real deployment files, the virtualenv or the test tree
+backup/
+.venv/
+tests/
+.github/

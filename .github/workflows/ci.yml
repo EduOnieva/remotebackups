@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+    branches: [main, v2]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: lint, types, tests (py${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.13", "3.14"]
+    # 3.14 is tracked for wheel readiness only; 3.13 is what the image ships
+    continue-on-error: ${{ matrix.python == '3.14' }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10
+        with:
+          python-version: ${{ matrix.python }}
+          enable-cache: true
+      - run: uv sync --frozen
+      - run: make lock-check
+      - run: make lint
+      - run: make type
+      - run: make test
