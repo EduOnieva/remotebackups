@@ -52,8 +52,8 @@ class TestLogParsing:
             handler = EnhancedLogHandler()
             # Mock the method to return expected result
             expected_result = '''🔴 ERROR SUMMARY: 2 errors found
-Line 2: [2024-01-01 10:00:01] [ERROR] Connection failed
-Line 4: [2024-01-01 10:00:03] [CRITICAL] System failure
+[2024-01-01 10:00:01] [ERROR] Connection failed
+[2024-01-01 10:00:03] [CRITICAL] System failure
 
 [2024-01-01 10:00:00] [INFO] Starting process
 [2024-01-01 10:00:01] [ERROR] Connection failed
@@ -65,8 +65,8 @@ Line 4: [2024-01-01 10:00:03] [CRITICAL] System failure
                 
                 # Should contain error summary
                 assert '🔴 ERROR SUMMARY: 2 errors found' in result
-                assert 'Line 2: [2024-01-01 10:00:01] [ERROR] Connection failed' in result
-                assert 'Line 4: [2024-01-01 10:00:03] [CRITICAL] System failure' in result
+                assert '[2024-01-01 10:00:01] [ERROR] Connection failed' in result
+                assert '[2024-01-01 10:00:03] [CRITICAL] System failure' in result
         finally:
             os.unlink(temp_file)
     
@@ -97,6 +97,23 @@ Line 4: [2024-01-01 10:00:03] [CRITICAL] System failure
         finally:
             os.unlink(temp_file)
     
+    def test_error_summary_counts_only_tagged_lines(self) -> None:
+        """rsync lists transferred files, so an error word inside a file name is not an error."""
+        lines = [
+            '[2024-01-01 10:00:00] [INFO] Starting sync process...',
+            'Black Clover (2017) - S01E80 - Failed Attempt.mkv',
+            'rsync: send_files failed to open "/data/x/a.mkv": Permission denied (13)',
+            '[2024-01-01 10:00:05] [ERROR] Sync failed: /data/x -> /remote/x (exit code: 23, duration: 5s)',
+            '[2024-01-01 10:00:06] [INFO] Sync process completed - Success: 0, Failures: 1, Total Duration: 00:00:06',
+        ]
+        with patch('web_server.EnhancedLogHandler.__init__', return_value=None):
+            error_count, summary = EnhancedLogHandler()._generate_error_summary(lines)
+        assert error_count == 1
+        assert '🔴 ERROR SUMMARY: 1 error found' in summary
+        assert '[ERROR] Sync failed: /data/x -> /remote/x' in summary
+        assert 'Failed Attempt.mkv' not in summary
+        assert 'Line ' not in summary
+
     @patch('web_server.EnhancedLogHandler.__init__', return_value=None)
     def test_generate_error_summary_max_errors(self, mock_init):
         """Test error summary with maximum error limit."""
@@ -224,7 +241,7 @@ class TestLogSizeCalculation:
             lines.append(f'[2024-01-01 10:00:{i:02d}] [ERROR] {long_error} {i}')
         
         handler = EnhancedLogHandler()
-        result = handler._generate_error_summary(lines)
+        _, result = handler._generate_error_summary(lines)
         
         # Should trigger size truncation
         if len(result) > 2000:

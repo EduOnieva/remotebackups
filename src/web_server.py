@@ -266,7 +266,7 @@ class EnhancedLogHandler(http.server.SimpleHTTPRequestHandler):
                     content = f.read().decode('utf-8', errors='ignore')
                     lines = content.splitlines()
                     _, error_summary = self._generate_error_summary(
-                        lines, offset=0, truncated=True)
+                        lines, truncated=True)
                     lines.reverse()
                     full_content = '\n'.join(lines)
                     return (
@@ -294,27 +294,21 @@ class EnhancedLogHandler(http.server.SimpleHTTPRequestHandler):
             logger.error(f'Error reading log file {log_path}: {e}')
             return f'Error reading log file: {str(e)}'
 
-    def _generate_error_summary(self, lines: List[str], offset: int = 0, truncated: bool = False) -> Tuple[int, str]:
-        '''Generate a summary of errors found in the log with line numbers (size-limited)
-        
+    def _generate_error_summary(self, lines: List[str], truncated: bool = False) -> Tuple[int, str]:
+        '''Summarize the tagged error lines of the log (size-limited)
+
+        Only [ERROR]/[CRITICAL] lines count: rsync lists every transferred file,
+        so matching free-text words would flag a media file named "Failed".
+        Lines are listed without numbers because the page shows the log reversed.
+
         Returns:
             Tuple of (error_count, summary_string)
         '''
-        errors = []
-        error_keywords = ['[ERROR]', '[CRITICAL]', 'ERROR:', 'CRITICAL:', 'Failed', 'Exception:', 'Traceback', 'Error:']
+        error_tags = ('[ERROR]', '[CRITICAL]')
         max_errors_to_show = 15  # Limit errors shown to prevent summary from getting too large
         max_summary_chars = 2000  # Overall character limit for the entire summary
-        
-        for i, line in enumerate(lines, start=1 + offset):
-            if len(errors) >= max_errors_to_show * 2:  # Search more but limit display
-                break
-                
-            line_upper = line.upper()
-            if any(keyword.upper() in line_upper for keyword in error_keywords):
-                # Limit error line length for summary display
-                error_entry = f'Line {i}: {line}'
-                errors.append(error_entry)
-        
+
+        errors = [line for line in lines if any(tag in line for tag in error_tags)]
         error_count = len(errors)
         
         if not errors:
