@@ -23,6 +23,22 @@ log_success() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] [SUCCESS] $*" | tee -a "$log_file"
 }
 
+# One run per file: the web view and its error count then cover the latest run
+# only, and rsync's per-file output cannot grow the log without bound.
+LOG_KEEP=5
+rotate_log() {
+    local i
+    for ((i = LOG_KEEP - 1; i >= 1; i--)); do
+        if [ -f "$log_file.$i" ]; then
+            mv -f "$log_file.$i" "$log_file.$((i + 1))"
+        fi
+    done
+    if [ -s "$log_file" ]; then
+        mv -f "$log_file" "$log_file.1"
+    fi
+    touch "$log_file"
+}
+
 # Path validation function to prevent directory traversal
 # Arguments:
 #   $1 - path to validate
@@ -122,6 +138,7 @@ if ! flock -n -w 300 200; then
     exit 1
 fi
 
+rotate_log
 log_info "Starting sync process..."
 run_started=1
 log_info "Acquired sync lock successfully"
