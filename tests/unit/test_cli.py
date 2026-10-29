@@ -77,3 +77,12 @@ def test_print_config_redacts(
     out = capsys.readouterr().out
     assert "host: nas" in out
     assert "hunter2" not in out
+
+
+def test_run_reports_an_invalid_config_and_exits_2(
+    paths: ConfigPaths, capsys: pytest.CaptureFixture[str]
+) -> None:
+    paths.config_file.write_text("schedule: {cron: whenever}\n")
+
+    assert main(["run"]) == 2
+    assert "schedule.cron: is not a valid cron expression" in capsys.readouterr().err

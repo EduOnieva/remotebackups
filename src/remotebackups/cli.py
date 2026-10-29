@@ -1,7 +1,6 @@
 """Command-line entry point.
 
-Subcommands arrive with the modules they drive. Today: configuration checks and a
-foreground `run-once` that does one backup run without the scheduler or the web UI.
+`run` is what the container executes; the other subcommands help configure and debug it.
 """
 
 import argparse
@@ -13,6 +12,7 @@ from collections.abc import Sequence
 from pydantic import ValidationError
 
 from remotebackups import __version__
+from remotebackups.app import Application
 from remotebackups.clock import SystemClock
 from remotebackups.config import Config, ConfigError, EnvSettings, dump_config, load_config
 from remotebackups.config.loader import EXAMPLE_TEXT, ensure_config_files, format_validation_errors
@@ -38,6 +38,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     commands = parser.add_subparsers(dest="command")
+    commands.add_parser(
+        "run", help="serve: scheduler, web UI and manual runs (the container default)"
+    )
     commands.add_parser("check-config", help="validate the configuration and summarise it")
     show = commands.add_parser("print-config", help="print the effective configuration as YAML")
     show.add_argument("--redact", action="store_true", help="mask secrets")
@@ -85,6 +88,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command == "print-config":
         print(dump_config(config, redact=args.redact), end="")
         return 0
+    if args.command == "run":
+        try:
+            return asyncio.run(Application(env, paths).run())
+        except ConfigError as exc:
+            return _report(exc)
     return asyncio.run(
         _run_once(paths, env, config, RunOptions(delete=args.delete, folders=args.folders))
     )

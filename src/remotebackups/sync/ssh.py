@@ -133,15 +133,19 @@ class SshSetup:
                 stderr=asyncio.subprocess.PIPE,
                 env=env,
             )
+        except OSError as exc:
+            return ProbeResult(False, f"could not start ssh: {exc}")
+        try:
             _, stderr = await asyncio.wait_for(process.communicate(), timeout_seconds)
         except TimeoutError:
-            process.kill()
-            await process.wait()
+            await _kill(process)
             return ProbeResult(
                 False, f"no answer from {self._remote.host} within {timeout_seconds:.0f}s"
             )
-        except OSError as exc:
-            return ProbeResult(False, f"could not start ssh: {exc}")
+        except asyncio.CancelledError:
+            # Shutdown while probing: do not leave an ssh child behind
+            await _kill(process)
+            raise
         if process.returncode == 0:
             return ProbeResult(True, "ok")
         detail = stderr.decode("utf-8", "replace").strip().splitlines()
@@ -199,6 +203,12 @@ def explain_ssh_failure(stderr_lines: list[str], known_hosts: Path) -> str:
         )
     meaningful = [line for line in stderr_lines if line.strip()]
     return meaningful[-1] if meaningful else "ssh exited with an error and no message"
+
+
+async def _kill(process: asyncio.subprocess.Process) -> None:
+    if process.returncode is None:
+        process.kill()
+        await process.wait()
 
 
 def minimal_env() -> dict[str, str]:
