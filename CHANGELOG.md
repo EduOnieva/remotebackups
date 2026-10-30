@@ -3,8 +3,8 @@
 ## 2.1 - 2026-10-30
 
 ### Added
-- Dry run: a checkbox in the UI, `dry_run` in `POST /api/runs` and `run-once --dry-run` pass `--dry-run` to rsync so Run and Run with delete can be previewed.
-- The selected run's folders under the log: status, duration, files, bytes and the reason for a failure.
+- Dry run: a button in the UI, `dry_run` in `POST /api/runs` and `run-once --dry-run` pass `--dry-run` to rsync so a run can be previewed; the API accepts it together with `delete`.
+- The selected run's folders under the log, folded under a one-line summary: status, duration, files, bytes and the reason for a failure.
 - A **Pause** box per folder pauses it from the UI (`PUT /api/folders/{name}`); runs skip paused folders until the container restarts, which forgets every pause. `check-config` and `print-config` mention paused folders; `enabled: false` in `config.yaml` remains the permanent switch.
 
 ### Changed

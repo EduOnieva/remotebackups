@@ -11,11 +11,9 @@
   <header>
     <h1>remotebackups <span class="muted">v{{ version }}</span></h1>
     <div class="actions">
-      <label class="check" title="rsync --dry-run: report what Run or Run with delete would do, transfer and delete nothing">
-        <input type="checkbox" id="dry-run"> Dry run
-      </label>
       <button id="run" class="primary">Run</button>
       <button id="run-delete" class="warn">Run with delete</button>
+      <button id="dry-run" class="ghost" title="rsync --dry-run: report what a Run would transfer, change nothing">Dry run</button>
       <button id="stop" class="danger" hidden>Stop</button>
     </div>
   </header>
@@ -65,12 +63,15 @@
         <pre id="log" class="log">Select a run below or start one.</pre>
         <button id="jump" class="pill" hidden>Jump to bottom</button>
       </div>
-      <div class="table-wrap" id="run-folders-wrap" hidden>
-        <table id="run-folders">
-          <thead><tr><th>Folder</th><th>Status</th><th>Duration</th><th class="wide-only">Files</th><th class="wide-only">Sent</th><th>Note</th></tr></thead>
-          <tbody></tbody>
-        </table>
-      </div>
+      <details class="fold" id="run-folders-wrap" hidden>
+        <summary id="run-folders-summary">Folders in this run</summary>
+        <div class="table-wrap">
+          <table id="run-folders">
+            <thead><tr><th>Folder</th><th>Status</th><th>Duration</th><th class="wide-only">Files</th><th class="wide-only">Sent</th><th>Note</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </details>
     </section>
 
     <details class="card" id="runs-card">
@@ -93,7 +94,7 @@
       <p id="folders-notice" class="small warn-text" hidden></p>
       <div class="table-wrap">
         <table id="folders">
-          <thead><tr><th class="pause">Pause</th><th>Name</th><th>Source</th><th>Destination</th><th>Notes</th></tr></thead>
+          <thead><tr><th>Name</th><th class="wide-only">Source</th><th class="wide-only">Destination</th><th>Notes</th><th class="pause">Pause</th></tr></thead>
           <tbody></tbody>
         </table>
       </div>

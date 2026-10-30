@@ -9,8 +9,8 @@ through Tailscale, or a machine on your LAN.
 
 - **Scheduled and manual runs.** A cron expression for the schedule, a Run button for now,
   a *Run with delete* button when you want the backup to drop files you deleted locally, and
-  a *Dry run* checkbox to preview either. A folder can be paused from the UI until the
-  container restarts.
+  a *Dry run* button that reports what a run would transfer. A folder can be paused from the
+  UI until the container restarts.
 - **Stop.** A running backup can be stopped from the UI; rsync keeps partial files and the
   next run continues where it stopped.
 - **Live log and history.** Every run has its own log, streamed live while it runs and kept
@@ -171,9 +171,9 @@ rsync -a -v -z --partial --stats --no-owner --no-group [--delete] [--timeout=N] 
   `allow_delete: true`. Scheduled runs never delete.
 - `--timeout` is added only to scheduled runs, so a NAS that fell asleep cannot hold a
   scheduled run forever, while a manual run you are watching is left alone.
-- `--dry-run` is added when the *Dry run* box is ticked (or `dry_run` is sent to the API):
-  rsync reports what it would transfer or delete and touches nothing. The run is recorded like
-  any other, marked as a dry run.
+- `--dry-run` is added by the *Dry run* button (or `dry_run` in the API body, which can be
+  combined with `delete` to preview a deletion): rsync reports what it would transfer and
+  touches nothing. The run is recorded like any other, marked as a dry run.
 - Editing `schedule.cron` in `config.yaml` moves the next scheduled run within a minute.
 - **Stop** sends SIGTERM to the running rsync and skips the remaining folders. `--partial`
   keeps what was transferred; the next run resumes.
@@ -184,13 +184,12 @@ rsync -a -v -z --partial --stats --no-owner --no-group [--delete] [--timeout=N] 
 
 The page shows the current state with progress during a run, the last and next run, whether
 the destination is reachable (with a **Check now** button), the TrueNAS card when enabled, the
-log of the selected run with a table of what happened to each of its folders, and the history
+log of the selected run with a folded table of what happened to each of its folders, and the history
 of runs and the configured folders in two cards that fold. The log follows new lines while you
 are at the bottom and offers a "jump to bottom" pill when you scroll up; the file name in its
 title downloads the whole file. A run you selected stays on screen when a scheduled run
-starts; click the new run to follow it. Buttons: **Run**, **Run with delete**, **Stop**,
-**Clear history**, and a **Dry run** checkbox that applies to the next Run or Run with delete.
-The layout works on a phone.
+starts; click the new run to follow it. Buttons: **Run**, **Run with delete**, **Dry run**,
+**Stop**, **Clear history**. The layout works on a phone.
 
 Each row of the Folders card has a **Pause** box. Ticking it pauses the folder: runs skip
 it until the container restarts, which forgets every pause, and the card says so while any

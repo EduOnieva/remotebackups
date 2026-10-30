@@ -39,8 +39,6 @@ dd { white-space: nowrap; }
 dt { color: var(--muted); }
 dd { margin: 0; }
 .actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-.check { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; color: var(--muted); cursor: pointer; user-select: none; padding: 0 6px; }
-.check input { accent-color: var(--accent); margin: 0; }
 button { border: 1px solid var(--border); background: var(--card); color: var(--text); padding: 8px 14px; border-radius: 6px; cursor: pointer; font: inherit; }
 button:disabled { opacity: .5; cursor: default; }
 button.primary { background: var(--accent); color: #fff; border-color: transparent; }
@@ -65,7 +63,12 @@ button.ghost { background: transparent; }
 #truenas-error { margin: 8px 0 0; }
 #log-title a { color: var(--accent); text-decoration: underline dotted; text-underline-offset: 3px; }
 .table-wrap { overflow-x: auto; }
-#run-folders-wrap { margin-top: 12px; }
+#run-folders-wrap { margin-top: 10px; }
+details.fold > summary { cursor: pointer; list-style: none; user-select: none; font-size: 13px; color: var(--muted); }
+details.fold > summary::-webkit-details-marker { display: none; }
+details.fold > summary::before { content: "\25B8"; display: inline-block; width: 1em; transition: transform .15s; }
+details.fold[open] > summary::before { transform: rotate(90deg); }
+details.fold[open] > summary { margin-bottom: 6px; }
 #run-folders tbody tr { cursor: default; }
 #run-folders tbody tr:hover { background: none; }
 td.note { white-space: normal; overflow-wrap: anywhere; color: var(--muted); }
@@ -93,7 +96,6 @@ tbody tr.selected { background: color-mix(in srgb, var(--accent) 16%, transparen
   .card { padding: 12px; }
   .actions { width: 100%; }
   .actions button { flex: 1; }
-  .actions .check { width: 100%; justify-content: center; }
   .big { font-size: 19px; overflow-wrap: anywhere; }
   dd { white-space: normal; }
   .log { max-height: 60vh; font-size: 12px; }

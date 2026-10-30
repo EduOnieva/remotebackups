@@ -131,6 +131,7 @@ function renderStatus(s) {
   next.title = s.schedule ? `cron: ${s.schedule}` : "";
   $("run").disabled = running;
   $("run-delete").disabled = running;
+  $("dry-run").disabled = running;
   $("stop").hidden = !running;
   $("stop").disabled = s.state === "cancelling";
 
@@ -270,6 +271,8 @@ function renderRunFolders(detail) {
     body.appendChild(tr);
   }
   wrap.hidden = !detail.folders.length;
+  const failed = detail.folders.filter((f) => f.status === "failed").length;
+  $("run-folders-summary").textContent = `Folders in this run · ${detail.folders_ok} of ${detail.folders.length} ok${failed ? `, ${failed} failed` : ""}`;
 }
 
 async function loadRunDetail(runId) {
@@ -313,7 +316,10 @@ function renderFolders() {
       pause.appendChild(toggle);
     }
     const chips = cell("", "chips");
-    tr.append(pause, cell(f.name), cell(f.source, "path"), cell(f.destination, "path"), chips);
+    // On a phone the paths give way to the switch; they stay one long-press away
+    const name = cell(f.name);
+    name.title = `${f.source} \u2192 ${f.destination}`;
+    tr.append(name, cell(f.source, "path wide-only"), cell(f.destination, "path wide-only"), chips, pause);
     tr.style.cursor = "default";
     if (!f.enabled) chips.appendChild(badge("disabled", "muted"));
     if (f.paused) chips.appendChild(badge("paused", "warn-text"));
@@ -524,9 +530,8 @@ async function showRun(runId) {
   } catch (e) { toast(e.message, true); }
 }
 
-async function startRun(withDelete) {
-  const dryRun = $("dry-run").checked;
-  if (withDelete && !dryRun && !confirm("Run with --delete? Files removed locally will be deleted from the backup.")) return;
+async function startRun(withDelete, dryRun = false) {
+  if (withDelete && !confirm("Run with --delete? Files removed locally will be deleted from the backup.")) return;
   try {
     const result = await api("/api/runs", { method: "POST", body: JSON.stringify({ delete: withDelete, dry_run: dryRun }) });
     toast(`${dryRun ? "Dry run" : "Run"} ${result.run_id} started`);
@@ -549,6 +554,7 @@ async function clearHistory() {
 
 $("run").onclick = () => startRun(false);
 $("run-delete").onclick = () => startRun(true);
+$("dry-run").onclick = () => startRun(false, true);
 $("stop").onclick = stopRun;
 $("check-remote").onclick = checkRemote;
 $("log").addEventListener("scroll", onLogScroll);
@@ -556,8 +562,8 @@ $("jump").onclick = () => { $("log").scrollTop = $("log").scrollHeight; };
 // The button sits inside a <summary>; without preventDefault the click would also fold the card
 $("clear").onclick = (e) => { e.preventDefault(); clearHistory(); };
 
-// Cards start folded; which ones you unfold is a per-browser preference kept in localStorage
-for (const card of document.querySelectorAll("details.card")) {
+// Cards and folds start closed; which ones you open is a per-browser preference kept in localStorage
+for (const card of document.querySelectorAll("details.card, details.fold")) {
   const key = `remotebackups.open.${card.id}`;
   try { card.open = localStorage.getItem(key) === "1"; } catch { /* storage unavailable */ }
   card.addEventListener("toggle", () => {
