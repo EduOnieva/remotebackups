@@ -52,6 +52,8 @@ through Tailscale, or a machine on your LAN.
        container_name: remotebackups
        restart: unless-stopped
        stop_grace_period: 30s
+       security_opt:
+         - no-new-privileges:true
        ports:
          - "8080:8080"
        volumes:

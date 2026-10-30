@@ -49,6 +49,8 @@ services:
         condition: service_healthy
     restart: unless-stopped
     stop_grace_period: 30s
+    security_opt:
+      - no-new-privileges:true
     volumes:
       - ./config:/config
       # Absolute path: `~` would be root's home under sudo or Portainer, and a missing source

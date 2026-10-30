@@ -12,6 +12,8 @@ services:
     container_name: remotebackups
     restart: unless-stopped
     stop_grace_period: 30s # a running rsync gets SIGTERM and ten seconds before SIGKILL
+    security_opt:
+      - no-new-privileges:true # nothing in the container needs to gain privileges
     ports:
       - "8080:8080"
     volumes:
