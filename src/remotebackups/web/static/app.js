@@ -99,7 +99,8 @@ const label = (outcome) => {
   const words = outcome.replace(/_/g, " ");
   return words.charAt(0).toUpperCase() + words.slice(1);
 };
-const runKind = (r, sep) => `${r.trigger}${r.delete ? `${sep}with delete` : ""}${r.dry_run ? `${sep}dry run` : ""}`;
+// A one-folder run names its folder, so a run started from the folder's row stays recognisable
+const runKind = (r, sep) => `${r.trigger}${r.delete ? `${sep}with delete` : ""}${r.dry_run ? `${sep}dry run` : ""}${r.folders_total === 1 ? ` · ${r.folder_names[0]}` : ""}`;
 // The file name in the title is the download link: a hint that the full log is one click away
 function setLogTitle(runId, startedAt, live = false) {
   const title = $("log-title");
@@ -271,8 +272,6 @@ function renderRunFolders(detail) {
     body.appendChild(tr);
   }
   wrap.hidden = !detail.folders.length;
-  const failed = detail.folders.filter((f) => f.status === "failed").length;
-  $("run-folders-summary").textContent = `Folders in this run · ${detail.folders_ok} of ${detail.folders.length} ok${failed ? `, ${failed} failed` : ""}`;
 }
 
 async function loadRunDetail(runId) {
@@ -302,24 +301,29 @@ function renderFolders() {
   body.innerHTML = "";
   for (const f of folderList) {
     const tr = document.createElement("tr");
-    // A tick is the exception, like the chips: a quiet row is a normal row. A folder the
-    // file disables has no pause state, so it gets no box
-    const pause = cell("", "pause");
+    // The verbs say what a click does; the paused chip carries the state. A folder the
+    // file disables has no actions, and a paused one has to be resumed before it can run
+    const actions = cell("", "row-actions");
     if (f.enabled) {
-      const toggle = document.createElement("input");
-      toggle.type = "checkbox";
-      toggle.checked = f.paused;
-      toggle.disabled = isRunning;
-      toggle.title = isRunning ? "Wait for the run to finish"
-        : f.paused ? "Untick to run this folder again" : "Tick to skip this folder until the container restarts";
-      toggle.onchange = () => setPaused(f.name, toggle.checked);
-      pause.appendChild(toggle);
+      const busy = isRunning ? "Wait for the run to finish" : "";
+      if (!f.paused) {
+        const run = rowButton("Run", busy || "Back up this folder now, nothing else", isRunning);
+        run.onclick = () => startRun(false, false, [f.name]);
+        actions.appendChild(run);
+      }
+      const pause = rowButton(
+        f.paused ? "Resume" : "Pause",
+        busy || (f.paused ? "Run this folder again" : "Skip this folder until the container restarts"),
+        isRunning,
+      );
+      pause.onclick = () => setPaused(f.name, !f.paused);
+      actions.appendChild(pause);
     }
     const chips = cell("", "chips");
     // On a phone the paths give way to the switch; they stay one long-press away
     const name = cell(f.name);
     name.title = `${f.source} \u2192 ${f.destination}`;
-    tr.append(name, cell(f.source, "path wide-only"), cell(f.destination, "path wide-only"), chips, pause);
+    tr.append(name, cell(f.source, "path wide-only"), cell(f.destination, "path wide-only"), chips, actions);
     tr.style.cursor = "default";
     if (!f.enabled) chips.appendChild(badge("disabled", "muted"));
     if (f.paused) chips.appendChild(badge("paused", "warn-text"));
@@ -335,6 +339,15 @@ function renderFolders() {
   notice.textContent = paused
     ? `${paused} folder${paused > 1 ? "s" : ""} paused from here until the container restarts. To disable a folder for good, set enabled: false in config.yaml.`
     : "";
+}
+
+function rowButton(text, title, disabled) {
+  const button = document.createElement("button");
+  button.className = "ghost small";
+  button.textContent = text;
+  button.title = title;
+  button.disabled = disabled;
+  return button;
 }
 
 async function setPaused(name, paused) {
@@ -530,11 +543,13 @@ async function showRun(runId) {
   } catch (e) { toast(e.message, true); }
 }
 
-async function startRun(withDelete, dryRun = false) {
+async function startRun(withDelete, dryRun = false, folders = null) {
   if (withDelete && !confirm("Run with --delete? Files removed locally will be deleted from the backup.")) return;
   try {
-    const result = await api("/api/runs", { method: "POST", body: JSON.stringify({ delete: withDelete, dry_run: dryRun }) });
-    toast(`${dryRun ? "Dry run" : "Run"} ${result.run_id} started`);
+    const body = { delete: withDelete, dry_run: dryRun };
+    if (folders) body.folders = folders;
+    const result = await api("/api/runs", { method: "POST", body: JSON.stringify(body) });
+    toast(`${dryRun ? "Dry run" : "Run"} ${result.run_id} started${folders ? ` · ${folders.join(", ")}` : ""}`);
     pinned = false;
     await loadStatus();
   } catch (e) { toast(e.message, true); }

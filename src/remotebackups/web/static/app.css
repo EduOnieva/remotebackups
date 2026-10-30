@@ -61,7 +61,7 @@ button.ghost { background: transparent; }
 .badge { display: inline-block; font-size: 11px; font-weight: 600; letter-spacing: .03em; padding: 1px 6px; border-radius: 999px; border: 1px solid currentColor; }
 .alert { display: grid; grid-template-columns: auto 1fr; gap: 8px; align-items: baseline; font-size: 13px; margin: 6px 0; }
 #truenas-error { margin: 8px 0 0; }
-#log-title a { color: var(--accent); text-decoration: underline dotted; text-underline-offset: 3px; }
+#log-title a { color: var(--accent); text-decoration: underline dotted; text-underline-offset: 3px; text-transform: none; }
 .table-wrap { overflow-x: auto; }
 #run-folders-wrap { margin-top: 10px; }
 details.fold > summary { cursor: pointer; list-style: none; user-select: none; font-size: 13px; color: var(--muted); }
@@ -76,9 +76,8 @@ table { width: 100%; border-collapse: collapse; font-size: 14px; }
 th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--border); white-space: nowrap; }
 td.path { white-space: normal; word-break: break-all; color: var(--muted); }
 td.chips .badge + .badge { margin-left: 6px; }
-th.pause, td.pause { text-align: center; width: 1%; }
-td.pause input { accent-color: var(--warn); margin: 0; cursor: pointer; width: 16px; height: 16px; vertical-align: middle; }
-td.pause input:disabled { cursor: default; opacity: .4; }
+td.row-actions { text-align: right; width: 1%; padding-top: 4px; padding-bottom: 4px; }
+td.row-actions button + button { margin-left: 6px; }
 #folders-notice { margin: 0 0 10px; }
 tbody tr { cursor: pointer; }
 tbody tr:hover { background: color-mix(in srgb, var(--accent) 8%, transparent); }

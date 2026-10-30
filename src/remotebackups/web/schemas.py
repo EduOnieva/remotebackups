@@ -18,6 +18,8 @@ class RunSummary(BaseModel):
     finished_at: datetime | None
     duration_s: float | None
     folders_total: int
+    # Names in run order, so a one-folder run started from its row says which one
+    folder_names: list[str]
     folders_ok: int
     folders_failed: int
     files_transferred: int
@@ -38,6 +40,7 @@ class RunSummary(BaseModel):
             finished_at=record.finished_at,
             duration_s=record.duration_s,
             folders_total=len(record.folders),
+            folder_names=[f.name for f in record.folders],
             folders_ok=record.folders_ok,
             folders_failed=record.folders_failed,
             files_transferred=record.files_transferred,

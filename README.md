@@ -191,11 +191,13 @@ title downloads the whole file. A run you selected stays on screen when a schedu
 starts; click the new run to follow it. Buttons: **Run**, **Run with delete**, **Dry run**,
 **Stop**, **Clear history**. The layout works on a phone.
 
-Each row of the Folders card has a **Pause** box. Ticking it pauses the folder: runs skip
-it until the container restarts, which forgets every pause, and the card says so while any
-folder is paused. The permanent switch stays in `config.yaml` (`enabled: false`); a folder
-disabled there has no box, since it cannot be turned on from the UI. Pausing is refused
-while a run is active, since it could only apply to the next one.
+Each row of the Folders card has two buttons. **Run** backs up that folder alone, as a
+plain manual run; the Runs table names the folder. **Pause** makes runs skip the folder
+until the container restarts, which forgets every pause, and the card says so while any
+folder is paused; the button then reads **Resume**. The permanent switch stays in
+`config.yaml` (`enabled: false`); a folder disabled there has no buttons, since it cannot be
+turned on from the UI. Pausing is refused while a run is active, since it could only apply
+to the next one.
 
 | Endpoint | What it returns |
 |---|---|

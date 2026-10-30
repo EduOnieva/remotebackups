@@ -4,8 +4,9 @@
 
 ### Added
 - Dry run: a button in the UI, `dry_run` in `POST /api/runs` and `run-once --dry-run` pass `--dry-run` to rsync so a run can be previewed; the API accepts it together with `delete`.
-- The selected run's folders under the log, folded under a one-line summary: status, duration, files, bytes and the reason for a failure.
-- A **Pause** box per folder pauses it from the UI (`PUT /api/folders/{name}`); runs skip paused folders until the container restarts, which forgets every pause. `check-config` and `print-config` mention paused folders; `enabled: false` in `config.yaml` remains the permanent switch.
+- The selected run's folders under the log, folded under **Folders Details**: status, duration, files, bytes and the reason for a failure.
+- A **Run** button per folder backs up that folder alone; the Runs table names the folder of a one-folder run.
+- A **Pause** button per folder pauses it from the UI (`PUT /api/folders/{name}`); runs skip paused folders until the container restarts, which forgets every pause. `check-config` and `print-config` mention paused folders; `enabled: false` in `config.yaml` remains the permanent switch.
 
 ### Changed
 - Editing `schedule.cron` moves the next scheduled run within a minute; before, the change waited until the already-computed run had fired.
