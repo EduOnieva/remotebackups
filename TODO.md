@@ -11,6 +11,7 @@ the changelog.
   bottom padding on the log while the pill is visible.
 - Document `FILE__TRUENAS_API_KEY` with a secret file as the recommended way to pass the
   TrueNAS key, since a plain environment variable is readable through `docker inspect`.
+- Complete the GitHub wiki.
 
 ## Ideas
 
