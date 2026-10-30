@@ -9,6 +9,8 @@ the changelog.
   is open: the rotated glyph is not vertically centred on the text.
 - Centre the Status and Note columns of the Folders Details table, and the Notes chips of
   the Folders card.
+- The toast appears at the top right, over the Run buttons. Move it, for example centred
+  at the top or at the bottom of the page, so it never covers a control.
 - Keep the "Jump to bottom" pill from covering the last log lines, for example with some
   bottom padding on the log while the pill is visible.
 - Document `FILE__TRUENAS_API_KEY` with a secret file as the recommended way to pass the
