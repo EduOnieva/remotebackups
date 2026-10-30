@@ -59,8 +59,7 @@ button.ghost { background: transparent; }
 .bar.warn-fill span { background: var(--warn); }
 .bar.bad-fill span { background: var(--danger); }
 .badge { display: inline-block; font-size: 11px; font-weight: 600; letter-spacing: .03em; padding: 1px 6px; border-radius: 999px; border: 1px solid currentColor; }
-.alert { display: grid; grid-template-columns: auto 1fr auto; gap: 4px 8px; align-items: baseline; font-size: 13px; margin: 6px 0; }
-.alert .when { color: var(--muted); white-space: nowrap; }
+.alert { display: grid; grid-template-columns: auto 1fr; gap: 8px; align-items: baseline; font-size: 13px; margin: 6px 0; }
 #truenas-error { margin: 8px 0 0; }
 #log-title a { color: var(--accent); text-decoration: underline dotted; text-underline-offset: 3px; }
 .table-wrap { overflow-x: auto; }
@@ -89,8 +88,5 @@ tbody tr.selected { background: color-mix(in srgb, var(--accent) 16%, transparen
   /* Files and bytes are in the log anyway; five columns is what fits without scrolling */
   .wide-only { display: none; }
   th, td { padding: 8px 4px; }
-  /* Date goes under the alert text instead of squeezing it into a narrow column */
-  .alert { grid-template-columns: auto 1fr; }
-  .alert .when { grid-column: 2; }
   #toast { left: 16px; right: 16px; max-width: none; }
 }

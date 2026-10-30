@@ -151,11 +151,10 @@ function renderLastRun(last, running) {
   const dd = $("last-run");
   dd.textContent = "";
   if (!last) { dd.textContent = "–"; return; }
-  // Idle, the header already carries the outcome; during a run it belongs here
-  const parts = [fmtTime(last.finished_at, false)];
+  // When and how long; the full numbers are one click away in Runs. Idle, the header
+  // already carries the outcome; during a run it belongs here
+  const parts = [`${fmtTime(last.finished_at, false)} (${fmtDuration(last.duration_s)})`];
   if (running) parts.push(label(last.outcome));
-  parts.push(fmtDuration(last.duration_s), `${last.folders_ok}/${last.folders_total} folders`);
-  if (last.files_transferred || last.bytes_sent) parts.push(`${last.files_transferred} files`, fmtBytes(last.bytes_sent));
   dd.append(parts.join(" · "));
   if (last.folders_failed) {
     const failed = document.createElement("span");
@@ -267,9 +266,8 @@ function renderPool(pool) {
   detail.className = "muted small";
   let text = `${pool.used_pct}% used · ${fmtBytes(pool.free)} free of ${fmtBytes(pool.size)}`;
   if (pool.scrub_ended_at) {
-    // The date would wrap the line on a phone; it stays available as a tooltip
-    text += pool.scrub_errors ? ` · scrub ${pool.scrub_errors} errors` : " · scrub ok";
-    detail.title = `Last scrub ${fmtDate(pool.scrub_ended_at)}`;
+    const errors = pool.scrub_errors ? `${pool.scrub_errors} errors` : "no errors";
+    text += ` · last scrub ${fmtDate(pool.scrub_ended_at)}, ${errors}`;
   }
   detail.textContent = text;
   div.append(head, bar, detail);
@@ -282,10 +280,9 @@ function renderAlert(alert) {
   const cls = alert.rank >= 4 ? "bad" : alert.rank >= 3 ? "warn-text" : "muted";
   const text = document.createElement("span");
   text.textContent = alert.text;
-  const when = document.createElement("span");
-  when.className = "when";
-  when.textContent = alert.since ? fmtTime(alert.since, false) : "";
-  div.append(badge(alert.level, cls), text, when);
+  // When it was raised matters less than what it says; keep it as a tooltip
+  if (alert.since) text.title = `Since ${fmtTime(alert.since, false)}`;
+  div.append(badge(alert.level, cls), text);
   return div;
 }
 
