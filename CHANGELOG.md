@@ -22,6 +22,7 @@
 - The per-run log cap compared characters with bytes.
 - An error page from a reverse proxy in front of the UI was shown as raw HTML in the toast; non-JSON errors now show their status instead.
 - The log file name in the log title was uppercased by the heading's style.
+- With `ui.locale` set, the Runs table and the log title could show the browser's date format until the next refresh.
 
 ## 2.0.0 - 2026-10-30
 

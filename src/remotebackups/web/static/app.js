@@ -120,8 +120,16 @@ function setLogTitle(runId, startedAt, live = false) {
 }
 
 function renderStatus(s) {
+  // Runs and the log title may have rendered before this first answer brought the configured
+  // locale; redo them once so the page does not show two date formats until the next refresh
+  const formatChanged = dateLocale !== (s.locale || undefined) || hour12 !== (s.clock === "12h");
   dateLocale = s.locale || undefined;
   hour12 = s.clock === "12h";
+  if (formatChanged) {
+    renderRuns();
+    const shown = runs.find((r) => r.id === selectedRun);
+    if (shown) setLogTitle(shown.id, shown.started_at, liveRun === shown.id);
+  }
   const running = s.state !== "idle";
   const current = s.current_run;
   // The pause switches lock during a run, since a toggle could only apply to the next one
