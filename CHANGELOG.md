@@ -13,6 +13,7 @@
 - Editing `schedule.cron` moves the next scheduled run within a minute; before, the change waited until the already-computed run had fired.
 - A run that starts while you are reading an older log no longer replaces what you are looking at; the page follows new runs only while it shows the latest one or a run started from it.
 - A web port already in use is reported in one sentence with exit code 3 instead of two tracebacks.
+- Tighter cards and tables; Duration, Folders, Files and Sent are right-aligned with tabular digits. On phones the Folders card hides the paths so the buttons stay on screen.
 
 ### Fixed
 - The ssh config and key copy under `/run/remotebackups/ssh` are swapped in atomically; the periodic probe used to truncate and rewrite them while a run could be starting an ssh.
@@ -20,6 +21,7 @@
 - A broken `config.yaml` was logged by the scheduler every minute; it is now logged once, with a line when it is readable again.
 - The per-run log cap compared characters with bytes.
 - An error page from a reverse proxy in front of the UI was shown as raw HTML in the toast; non-JSON errors now show their status instead.
+- The log file name in the log title was uppercased by the heading's style.
 
 ## 2.0.0 - 2026-10-30
 

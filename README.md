@@ -163,7 +163,7 @@ exits so you notice. `remotebackups check-config` validates without starting any
 For each enabled folder, in order, one `rsync` is started over SSH:
 
 ```
-rsync -a -v -z --partial --stats --no-owner --no-group [--delete] [--timeout=N] --exclude=... \
+rsync -a -v -z --partial --stats --no-owner --no-group [--delete] [--dry-run] [--timeout=N] --exclude=... \
   -e "ssh -F /run/remotebackups/ssh/config" /data/documents/ backup@host:/mnt/backup/documents/
 ```
 
@@ -220,9 +220,9 @@ to the next one.
 
 The UI has no login. Keep it where only you can reach it: on your tailnet (the Tailscale
 compose file does exactly that), on your LAN, or behind your reverse proxy's authentication.
-`POST` and `DELETE` calls must carry `Content-Type: application/json` and come from the same
-origin, so a page on another site cannot start or stop a run through your browser; from a
-script, add the header: `curl -X POST -H 'Content-Type: application/json' host:8080/api/runs`.
+`POST`, `PUT` and `DELETE` calls must carry `Content-Type: application/json` and come from the
+same origin, so a page on another site cannot start or stop a run through your browser; from
+a script, add the header: `curl -X POST -H 'Content-Type: application/json' host:8080/api/runs`.
 
 ## Networking
 
@@ -293,8 +293,8 @@ make test-integration  # real sshd + the image under test, then a docker stop mi
 ```
 
 Unit tests drive fake `rsync`, `ssh`, `ssh-keygen` and `sshpass` binaries, so they run
-anywhere in a few seconds. The integration stack in `compose/` is what CI runs before an
-image is published.
+anywhere in a few seconds. The integration stack in `compose/` runs in CI on every push,
+alongside the image build.
 
 Work happens on the `develop` branch, which publishes the `develop` image on every push.
 A release merges `develop` into `main`, which publishes `latest`, and tags it `vX.Y`, which

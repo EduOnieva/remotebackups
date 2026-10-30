@@ -56,8 +56,8 @@ packages = ["src/remotebackups"]
 line-length = 100
 target-version = "py313"
 src = ["src", "tests"]
-# The v1 code under src/ and build/ is frozen until it is deleted; only the new package is linted
-extend-exclude = ["src/web_server.py", "backup", "build"]
+# backup/ holds the owner's gitignored deployment files
+extend-exclude = ["backup"]
 
 [tool.ruff.lint]
 select = [
