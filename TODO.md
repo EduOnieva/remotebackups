@@ -15,6 +15,7 @@ the changelog.
   `/usr/local/bin/pip*`, `ensurepip`): nothing runs it, and its vendored urllib3, msgpack and
   setuptools copies are what the Docker Hub scanner reports. Consider a weekly scheduled
   rebuild of `latest` so base-image fixes arrive without a code change.
+- Improve the Dockerfile.
 
 ## Ideas
 
