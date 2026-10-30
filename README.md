@@ -1,6 +1,7 @@
 # remotebackups
 
 Scheduled rsync backups of your home-server folders to another host, with a web UI.
+Source, releases and changelog: https://github.com/EduOnieva/remotebackups
 
 One container. Mount the folders, point it at a host you can SSH into, and it keeps a copy
 there: on a schedule, or when you press **Run**. The destination can be anything with `sshd`
