@@ -55,9 +55,11 @@ def test_pool_status_keys_pools_by_name() -> None:
         ]
     )
     with patch("remotebackups.truenas.client.create_connection", return_value=ws):
-        status = client().get_pool_status()
+        full = client().query()
+    status = full.result
 
     assert status == {"alerts": 1, "backup-disk-0": "3.42 TB", "backup-disk-1": "0.5 TB"}
+    assert full.alert_texts == ("Pool backup-disk-1 state is DEGRADED",)
     methods = [m["method"] for m in ws.sent if m["msg"] == "method"]
     assert methods == ["auth.login_with_api_key", "alert.list", "pool.query"]
     assert ws.sent[1]["params"] == ["1-testtoken"]

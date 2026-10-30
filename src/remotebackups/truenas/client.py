@@ -5,6 +5,7 @@ import logging
 import ssl
 import uuid
 from collections.abc import Mapping
+from dataclasses import dataclass, field
 from typing import Any
 
 from websocket import create_connection
@@ -12,6 +13,14 @@ from websocket import create_connection
 logger = logging.getLogger(__name__)
 
 TIB = 1024**4
+
+
+@dataclass(frozen=True)
+class PoolStatus:
+    """What one query produced: the API-shaped result plus the alert texts for logging."""
+
+    result: dict[str, int | str]
+    alert_texts: tuple[str, ...] = field(default_factory=tuple)
 
 
 class TrueNASClient:
@@ -35,6 +44,9 @@ class TrueNASClient:
 
     def get_pool_status(self) -> dict[str, int | str]:
         """`{"alerts": n, "<alias or pool>": "X TB", ...}`, or `{"error": "..."}`."""
+        return self.query().result
+
+    def query(self) -> PoolStatus:
         ws = None
         try:
             ws = create_connection(
@@ -52,7 +64,7 @@ class TrueNASClient:
             pools = self._call(ws, "pool.query") or []
         except Exception as exc:
             # A NAS that is off or asleep is expected; the caller decides how loud to be
-            return {"error": f"Failed to connect to TrueNAS: {exc}"}
+            return PoolStatus({"error": f"Failed to connect to TrueNAS: {exc}"})
         finally:
             if ws is not None:
                 try:
@@ -61,18 +73,13 @@ class TrueNASClient:
                     logger.warning("Error closing TrueNAS WebSocket: %s", exc)
 
         result: dict[str, int | str] = {"alerts": len(alerts)}
-        if alerts:
-            logger.warning(
-                "TrueNAS alerts (%d): %s",
-                len(alerts),
-                "; ".join(a.get("formatted", a.get("text", "unknown")) for a in alerts),
-            )
+        texts = tuple(str(a.get("formatted", a.get("text", "unknown"))) for a in alerts)
         for pool in pools:
             # Keyed by name (or its alias): TrueNAS ids are database rows that change on recreate
             name = pool.get("name", "unknown")
             free_tb = round(pool.get("free", 0) / TIB, 2)
             result[self._aliases.get(name, name)] = f"{free_tb} TB"
-        return result
+        return PoolStatus(result, texts)
 
     def _call(self, ws: Any, method: str, params: list[Any] | None = None) -> Any:
         """One DDP method call; unrelated traffic (events, pongs, other ids) is skipped."""

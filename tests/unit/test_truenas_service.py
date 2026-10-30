@@ -6,6 +6,7 @@ from unittest.mock import patch
 import pytest
 
 from remotebackups.config import Config
+from remotebackups.truenas.client import PoolStatus
 from remotebackups.truenas.service import DISABLED, TrueNASService
 from tests.fakes.clock import FakeClock
 
@@ -28,8 +29,8 @@ async def test_enabled_by_key_queries_the_nas_in_a_thread(
     assert svc.enabled is True
 
     with patch(
-        "remotebackups.truenas.service.TrueNASClient.get_pool_status",
-        return_value={"alerts": 0, "disk-0": "3.42 TB"},
+        "remotebackups.truenas.service.TrueNASClient.query",
+        return_value=PoolStatus({"alerts": 0, "disk-0": "3.42 TB"}),
     ) as query:
         assert await svc.pool_status() == {"alerts": 0, "disk-0": "3.42 TB"}
     assert query.call_count == 1
@@ -41,8 +42,8 @@ async def test_results_are_cached_for_cache_seconds(
     config = make_config(truenas={"api_key": "1-abc", "cache_seconds": 30})
     svc = service(config, clock)
     with patch(
-        "remotebackups.truenas.service.TrueNASClient.get_pool_status",
-        return_value={"alerts": 0},
+        "remotebackups.truenas.service.TrueNASClient.query",
+        return_value=PoolStatus({"alerts": 0}),
     ) as query:
         await svc.pool_status()
         clock.advance(29)
@@ -59,8 +60,8 @@ async def test_concurrent_callers_share_one_query(
     config = make_config(truenas={"api_key": "1-abc"})
     svc = service(config, clock)
     with patch(
-        "remotebackups.truenas.service.TrueNASClient.get_pool_status",
-        return_value={"alerts": 2},
+        "remotebackups.truenas.service.TrueNASClient.query",
+        return_value=PoolStatus({"alerts": 2}),
     ) as query:
         results = await asyncio.gather(*(svc.pool_status() for _ in range(5)))
     assert results == [{"alerts": 2}] * 5
@@ -74,15 +75,15 @@ async def test_errors_are_logged_once_per_change_and_recovery_once(
     svc = service(config, clock)
     answers = iter(
         [
-            {"error": "Failed to connect to TrueNAS: unreachable"},
-            {"error": "Failed to connect to TrueNAS: unreachable"},
-            {"error": "Failed to connect to TrueNAS: refused"},
-            {"alerts": 0},
+            PoolStatus({"error": "Failed to connect to TrueNAS: unreachable"}),
+            PoolStatus({"error": "Failed to connect to TrueNAS: unreachable"}),
+            PoolStatus({"error": "Failed to connect to TrueNAS: refused"}),
+            PoolStatus({"alerts": 0}),
         ]
     )
     with (
         patch(
-            "remotebackups.truenas.service.TrueNASClient.get_pool_status",
+            "remotebackups.truenas.service.TrueNASClient.query",
             side_effect=lambda: next(answers),
         ),
         caplog.at_level(logging.INFO, logger="remotebackups.truenas.service"),
@@ -97,3 +98,43 @@ async def test_errors_are_logged_once_per_change_and_recovery_once(
         "TrueNAS status unavailable: Failed to connect to TrueNAS: refused",
     ]
     assert "TrueNAS status available again" in caplog.text
+
+
+async def test_alerts_are_logged_only_when_they_change(
+    clock: FakeClock, make_config: Callable[..., Config], caplog: pytest.LogCaptureFixture
+) -> None:
+    config = make_config(truenas={"api_key": "1-abc", "cache_seconds": 0})
+    svc = service(config, clock)
+    answers = iter(
+        [
+            PoolStatus({"alerts": 1}, ("Updates are available for 1 application: tailscale",)),
+            PoolStatus({"alerts": 1}, ("Updates are available for 1 application: tailscale",)),
+            PoolStatus(
+                {"alerts": 2},
+                (
+                    "Updates are available for 1 application: tailscale",
+                    "Pool backup-disk-1 state is DEGRADED",
+                ),
+            ),
+            PoolStatus({"alerts": 0}),
+            PoolStatus({"alerts": 0}),
+        ]
+    )
+    with (
+        patch(
+            "remotebackups.truenas.service.TrueNASClient.query",
+            side_effect=lambda: next(answers),
+        ),
+        caplog.at_level(logging.INFO, logger="remotebackups.truenas.service"),
+    ):
+        for _ in range(5):
+            await svc.pool_status()
+            clock.advance(1)
+
+    messages = [r.getMessage() for r in caplog.records]
+    assert messages == [
+        "TrueNAS alerts (1): Updates are available for 1 application: tailscale",
+        "TrueNAS alerts (2): Updates are available for 1 application: tailscale; "
+        "Pool backup-disk-1 state is DEGRADED",
+        "TrueNAS alerts cleared",
+    ]

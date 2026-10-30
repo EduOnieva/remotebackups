@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 
 from remotebackups.clock import Clock
 from remotebackups.config import Config
-from remotebackups.truenas.client import TrueNASClient
+from remotebackups.truenas.client import PoolStatus, TrueNASClient
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +24,7 @@ class TrueNASService:
         self._cached: dict[str, int | str] | None = None
         self._cached_at: datetime | None = None
         self._last_error: str | None = None
+        self._last_alerts: tuple[str, ...] = ()
 
     @property
     def enabled(self) -> bool:
@@ -48,17 +49,29 @@ class TrueNASService:
                 verify_tls=truenas.verify_tls,
                 pool_aliases=truenas.pool_aliases,
             )
-            result = await asyncio.to_thread(client.get_pool_status)
-            self._log_transition(result)
-            self._cached, self._cached_at = result, now
-            return dict(result)
+            status = await asyncio.to_thread(client.query)
+            self._log_transition(status)
+            self._cached, self._cached_at = status.result, now
+            return dict(status.result)
 
-    def _log_transition(self, result: dict[str, int | str]) -> None:
-        error = result.get("error")
+    def _log_transition(self, status: PoolStatus) -> None:
+        """Log errors and alerts when they change, not on every poll of the UI."""
+        error = status.result.get("error")
         if isinstance(error, str):
             if error != self._last_error:
                 logger.warning("TrueNAS status unavailable: %s", error)
             self._last_error = error
-        elif self._last_error is not None:
+            return
+        if self._last_error is not None:
             logger.info("TrueNAS status available again")
             self._last_error = None
+        if status.alert_texts != self._last_alerts:
+            if status.alert_texts:
+                logger.warning(
+                    "TrueNAS alerts (%d): %s",
+                    len(status.alert_texts),
+                    "; ".join(status.alert_texts),
+                )
+            else:
+                logger.info("TrueNAS alerts cleared")
+            self._last_alerts = status.alert_texts

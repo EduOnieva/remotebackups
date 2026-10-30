@@ -10,6 +10,7 @@ let liveRun = null;
 let stream = null;
 let runs = [];
 let statusTimer = null;
+let truenasLoaded = false;
 
 async function api(path, options = {}) {
   const response = await fetch(path, { headers: { "Content-Type": "application/json" }, ...options });
@@ -64,6 +65,8 @@ function renderStatus(s) {
   $("remote-checked").textContent = fmtTime(s.remote.checked_at);
   $("remote-message").textContent = ok === false ? s.remote.message : "";
   $("truenas-card").hidden = !s.truenas_enabled;
+  // The page-load fetch runs before status reveals TrueNAS is on; fetch now instead of in 60 s
+  if (s.truenas_enabled && !truenasLoaded) loadTrueNAS();
 
   if (current && liveRun !== current.id) follow(current.id);
   if (!current && liveRun) { liveRun = null; loadRuns(); }
@@ -110,6 +113,7 @@ async function loadFolders() {
 
 async function loadTrueNAS() {
   if ($("truenas-card").hidden) return;
+  truenasLoaded = true;
   try {
     const data = await api("/api/pool_status");
     const dl = $("truenas-list");
