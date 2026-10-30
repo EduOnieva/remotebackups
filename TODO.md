@@ -13,6 +13,7 @@ the changelog.
 
 ## Ideas
 
+- Add an option for a custom.css, so the look can be adjusted without rebuilding the image.
 - A way to preview a deletion from the UI: Dry run with `--delete`. The API already
   accepts `dry_run` together with `delete`.
 - Let each top card end at its own height instead of stretching to the tallest one.
