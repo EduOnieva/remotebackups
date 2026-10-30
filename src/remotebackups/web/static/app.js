@@ -196,8 +196,9 @@ function renderPool(pool) {
   detail.className = "muted small";
   let text = `${pool.used_pct}% used · ${fmtBytes(pool.free)} free of ${fmtBytes(pool.size)}`;
   if (pool.scrub_ended_at) {
-    const errors = pool.scrub_errors ? `${pool.scrub_errors} errors` : "no errors";
-    text += ` · last scrub ${fmtDate(pool.scrub_ended_at)}, ${errors}`;
+    // The date would wrap the line on a phone; it stays available as a tooltip
+    text += pool.scrub_errors ? ` · scrub ${pool.scrub_errors} errors` : " · scrub ok";
+    detail.title = `Last scrub ${fmtDate(pool.scrub_ended_at)}`;
   }
   detail.textContent = text;
   div.append(head, bar, detail);
