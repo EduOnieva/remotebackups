@@ -276,11 +276,11 @@ function renderRunFolders(detail) {
     const tr = document.createElement("tr");
     tr.append(
       cell(f.name),
-      cell(f.status, FOLDER_STATUS_CLASS[f.status] || "muted"),
+      cell(f.status, `mid ${FOLDER_STATUS_CLASS[f.status] || "muted"}`),
       cell(fmtDuration(f.duration_s), "num"),
       cell(f.stats ? f.stats.files_transferred : "–", "wide-only num"),
       cell(f.stats ? fmtBytes(f.stats.bytes_sent) : "–", "wide-only num"),
-      cell(f.message || "", "note"),
+      cell(f.message || "", "note mid"),
     );
     body.appendChild(tr);
   }
@@ -332,7 +332,7 @@ function renderFolders() {
       pause.onclick = () => setPaused(f.name, !f.paused);
       actions.appendChild(pause);
     }
-    const chips = cell("", "chips");
+    const chips = cell("", "chips mid");
     // On a phone the paths give way to the switch; they stay one long-press away
     const name = cell(f.name);
     name.title = `${f.source} \u2192 ${f.destination}`;

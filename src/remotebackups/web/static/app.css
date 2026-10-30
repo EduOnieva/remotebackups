@@ -21,8 +21,9 @@ main > *, .cards > * { min-width: 0; }
 .card-head:not(summary) { margin-bottom: 6px; }
 summary.card-head { cursor: pointer; list-style: none; user-select: none; }
 summary.card-head::-webkit-details-marker { display: none; }
-summary.card-head h2::before { content: "\25B8"; display: inline-block; width: 1em; transition: transform .15s; }
-details[open] > summary.card-head h2::before { transform: rotate(90deg); }
+/* Two glyphs rather than one rotated: a rotated triangle no longer sits on the text's baseline */
+summary.card-head h2::before { content: "\25B8"; display: inline-block; width: 1em; }
+details[open] > summary.card-head h2::before { content: "\25BE"; }
 details[open] > summary.card-head { margin-bottom: 6px; }
 .big { font-size: 22px; font-weight: 600; margin: 0 0 4px; }
 .bar.progress-fill span { background: var(--accent); }
@@ -67,8 +68,8 @@ button.ghost { background: transparent; }
 #run-folders-wrap { margin-top: 10px; }
 details.fold > summary { cursor: pointer; list-style: none; user-select: none; font-size: 13px; color: var(--muted); }
 details.fold > summary::-webkit-details-marker { display: none; }
-details.fold > summary::before { content: "\25B8"; display: inline-block; width: 1em; transition: transform .15s; }
-details.fold[open] > summary::before { transform: rotate(90deg); }
+details.fold > summary::before { content: "\25B8"; display: inline-block; width: 1em; }
+details.fold[open] > summary::before { content: "\25BE"; }
 details.fold[open] > summary { margin-bottom: 6px; }
 #run-folders tbody tr { cursor: default; }
 #run-folders tbody tr:hover { background: none; }
@@ -79,6 +80,7 @@ th, td { text-align: left; padding: 6px; border-bottom: 1px solid var(--border);
 tbody tr:last-child td { border-bottom: none; }
 /* Numbers right-aligned with equal-width digits, so sizes and counts compare down a column */
 th.num, td.num { text-align: right; font-variant-numeric: tabular-nums; }
+th.mid, td.mid { text-align: center; }
 td.path { white-space: normal; word-break: break-all; color: var(--muted); }
 td.chips .badge + .badge { margin-left: 6px; }
 th.row-actions, td.row-actions { text-align: center; width: 1%; white-space: nowrap; }
@@ -92,7 +94,7 @@ tbody tr.selected { background: color-mix(in srgb, var(--accent) 16%, transparen
 .state-completed, .ok { color: var(--ok); }
 .state-completed_with_errors, .warn-text { color: var(--warn); }
 .state-failed, .state-cancelled, .state-aborted, .bad { color: var(--danger); }
-#toast { position: fixed; right: 20px; top: 20px; background: var(--card); border: 1px solid var(--border); border-left: 4px solid var(--accent); padding: 10px 14px; border-radius: 6px; box-shadow: 0 6px 24px rgba(0,0,0,.25); max-width: 420px; }
+#toast { position: fixed; left: 50%; transform: translateX(-50%); top: 20px; background: var(--card); border: 1px solid var(--border); border-left: 4px solid var(--accent); padding: 10px 14px; border-radius: 6px; box-shadow: 0 6px 24px rgba(0,0,0,.25); max-width: 420px; }
 #toast.bad { border-left-color: var(--danger); }
 
 @media (max-width: 640px) {
@@ -107,5 +109,5 @@ tbody tr.selected { background: color-mix(in srgb, var(--accent) 16%, transparen
   /* Files and bytes are in the log anyway; five columns is what fits without scrolling */
   .wide-only { display: none; }
   th, td { padding: 6px 4px; }
-  #toast { left: 16px; right: 16px; max-width: none; }
+  #toast { left: 16px; right: 16px; transform: none; max-width: none; }
 }
