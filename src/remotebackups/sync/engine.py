@@ -136,10 +136,12 @@ class SyncEngine:
         )
         lock: IO[str] | None = None
         try:
+            paused = ", ".join(sorted(config.paused_folders))
             log.event(
                 "INFO",
                 f"Run {record.id} started: trigger={record.trigger.value} "
-                f"delete={options.delete} dry_run={options.dry_run} folders={len(folders)}",
+                f"delete={options.delete} dry_run={options.dry_run} folders={len(folders)}"
+                + (f" paused={paused}" if paused else ""),
             )
             lock = self._acquire_lock(self._paths.runs_dir / ".lock")
             if lock is None:

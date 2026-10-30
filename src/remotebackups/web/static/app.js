@@ -26,6 +26,8 @@ let unseenLines = 0;
 // while it shows the latest one or a run started from here
 let pinned = false;
 let knownCurrent = null;
+let folderList = [];
+let isRunning = false;
 
 async function api(path, options = {}) {
   const response = await fetch(path, { headers: { "Content-Type": "application/json" }, ...options });
@@ -116,6 +118,8 @@ function renderStatus(s) {
   hour12 = s.clock === "12h";
   const running = s.state !== "idle";
   const current = s.current_run;
+  // The pause switches lock during a run, since a toggle could only apply to the next one
+  if (running !== isRunning) { isRunning = running; renderFolders(); }
   const stateEl = $("state");
   stateEl.textContent = running ? (s.state === "cancelling" ? "Stopping…" : "Running") : (s.last_run ? label(s.last_run.outcome) : "No run yet");
   stateEl.className = `big state-${running ? s.state : (s.last_run?.outcome || "idle")}`;
@@ -286,21 +290,53 @@ async function loadRuns() {
 }
 
 async function loadFolders() {
-  try {
-    const list = await api("/api/folders");
-    const body = $("folders").querySelector("tbody");
-    body.innerHTML = "";
-    for (const f of list) {
-      const tr = document.createElement("tr");
-      const chips = cell("", "chips");
-      tr.append(cell(f.name), cell(f.source, "path"), cell(f.destination, "path"), chips);
-      tr.style.cursor = "default";
-      if (!f.enabled) chips.appendChild(badge("disabled", "muted"));
-      if (!f.source_exists) chips.appendChild(badge("source missing", "bad"));
-      if (!f.allow_delete) chips.appendChild(badge("no delete", "muted"));
-      body.appendChild(tr);
+  try { folderList = await api("/api/folders"); renderFolders(); }
+  catch (e) { toast(e.message, true); }
+}
+
+function renderFolders() {
+  const body = $("folders").querySelector("tbody");
+  body.innerHTML = "";
+  for (const f of folderList) {
+    const tr = document.createElement("tr");
+    // A tick is the exception, like the chips: a quiet row is a normal row. A folder the
+    // file disables has no pause state, so it gets no box
+    const pause = cell("", "pause");
+    if (f.enabled) {
+      const toggle = document.createElement("input");
+      toggle.type = "checkbox";
+      toggle.checked = f.paused;
+      toggle.disabled = isRunning;
+      toggle.title = isRunning ? "Wait for the run to finish"
+        : f.paused ? "Untick to run this folder again" : "Tick to skip this folder until the container restarts";
+      toggle.onchange = () => setPaused(f.name, toggle.checked);
+      pause.appendChild(toggle);
     }
+    const chips = cell("", "chips");
+    tr.append(pause, cell(f.name), cell(f.source, "path"), cell(f.destination, "path"), chips);
+    tr.style.cursor = "default";
+    if (!f.enabled) chips.appendChild(badge("disabled", "muted"));
+    if (f.paused) chips.appendChild(badge("paused", "warn-text"));
+    if (!f.source_exists) chips.appendChild(badge("source missing", "bad"));
+    if (!f.allow_delete) chips.appendChild(badge("no delete", "muted"));
+    body.appendChild(tr);
+  }
+  // A pause is forgotten at the next restart; say so where the switches are, and point at
+  // the permanent switch, so a redeploy never surprises anyone
+  const paused = folderList.filter((f) => f.paused).length;
+  const notice = $("folders-notice");
+  notice.hidden = !paused;
+  notice.textContent = paused
+    ? `${paused} folder${paused > 1 ? "s" : ""} paused from here until the container restarts. To disable a folder for good, set enabled: false in config.yaml.`
+    : "";
+}
+
+async function setPaused(name, paused) {
+  try {
+    await api(`/api/folders/${encodeURIComponent(name)}`, { method: "PUT", body: JSON.stringify({ paused }) });
+    toast(paused ? `${name} paused until the container restarts` : `${name} runs again`);
   } catch (e) { toast(e.message, true); }
+  await loadFolders();
 }
 
 const MAX_ALERTS_SHOWN = 5;

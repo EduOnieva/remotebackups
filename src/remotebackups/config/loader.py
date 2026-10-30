@@ -8,6 +8,7 @@ import yaml
 from pydantic import SecretStr, ValidationError
 
 from remotebackups.config.env import EnvSettings
+from remotebackups.config.paused import PausedFolders
 from remotebackups.config.schema import Config
 from remotebackups.paths import ConfigPaths
 
@@ -29,9 +30,11 @@ def load_config(paths: ConfigPaths, env: EnvSettings) -> Config:
     file_values = _read_config_file(paths)
     merged = _deep_merge(file_values, env.config_overrides())
     try:
-        return Config.model_validate(merged)
+        config = Config.model_validate(merged)
     except ValidationError as exc:
         raise ConfigError(format_validation_errors(exc)) from exc
+    config.set_paused(PausedFolders(paths.paused_file).names())
+    return config
 
 
 def ensure_config_files(paths: ConfigPaths) -> bool:
@@ -53,7 +56,12 @@ def ensure_config_files(paths: ConfigPaths) -> bool:
 def dump_config(config: Config, *, redact: bool) -> str:
     """The effective configuration as YAML, secrets masked unless asked otherwise."""
     data = config.model_dump(mode="json" if redact else "python")
-    return yaml.safe_dump(_reveal_secrets(data), sort_keys=False, allow_unicode=True)
+    text = yaml.safe_dump(_reveal_secrets(data), sort_keys=False, allow_unicode=True)
+    if config.paused_folders:
+        # safe_dump cannot emit comments, and this is not a key anyone can write in the file
+        paused = ", ".join(sorted(config.paused_folders))
+        text += f"# paused from the UI until the container restarts: {paused}\n"
+    return text
 
 
 def format_validation_errors(exc: ValidationError) -> list[str]:

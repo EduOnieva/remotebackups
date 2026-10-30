@@ -92,8 +92,14 @@ class FolderInfo(BaseModel):
     source: str
     destination: str
     enabled: bool
+    # Paused from the UI until the container restarts; independent of `enabled`
+    paused: bool
     allow_delete: bool
     source_exists: bool
+
+
+class FolderUpdate(BaseModel):
+    paused: bool
 
 
 class RunRequest(BaseModel):

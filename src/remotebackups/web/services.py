@@ -9,6 +9,7 @@ from datetime import datetime
 from typing import Protocol
 
 from remotebackups.config import Config
+from remotebackups.config.paused import PausedFolders
 from remotebackups.sync import RunHistory, RunOptions, RunRecord, RunState, RunTrigger
 from remotebackups.truenas.service import TrueNASDetails
 
@@ -55,5 +56,6 @@ class Services:
     scheduler_alive: Callable[[], bool]
     remote_status: Callable[[], RemoteStatusLike]
     probe_remote: Callable[[], Awaitable[RemoteStatusLike]]
+    paused: PausedFolders
     version: str
     started_at: datetime

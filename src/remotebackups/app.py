@@ -16,6 +16,7 @@ from remotebackups import __version__
 from remotebackups.clock import Clock, SystemClock
 from remotebackups.config import Config, ConfigError, EnvSettings, load_config
 from remotebackups.config.loader import ensure_config_files
+from remotebackups.config.paused import PausedFolders
 from remotebackups.paths import ConfigPaths
 from remotebackups.scheduler import CronScheduler
 from remotebackups.sync import RunHistory, SshSetup, SshSetupError, SyncEngine
@@ -88,6 +89,11 @@ class Application:
         self.started_at = self.clock.now()
         self.paths.ensure()
         ensure_config_files(self.paths)
+        forgotten = PausedFolders(self.paths.paused_file).clear()
+        if forgotten:
+            logger.info(
+                "Folders paused before the restart run again: %s", ", ".join(sorted(forgotten))
+            )
         config = self.load_config()
         if not self.paths.config_dir_is_mounted():
             logger.warning(
@@ -174,6 +180,7 @@ class Application:
             scheduler_alive=lambda: scheduler.alive,
             remote_status=lambda: self.remote_status,
             probe_remote=self.probe_remote,
+            paused=PausedFolders(self.paths.paused_file),
             version=__version__,
             started_at=self.started_at,
         )

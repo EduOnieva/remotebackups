@@ -5,12 +5,21 @@ Structural rules live here; anything that needs the filesystem or the network
 (key files, reachability) is checked by the module that uses the value.
 """
 
+from collections.abc import Iterable
 from enum import StrEnum
 from pathlib import PurePosixPath
 from typing import Any, Literal, Self
 
 from croniter import croniter
-from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    PrivateAttr,
+    SecretStr,
+    field_validator,
+    model_validator,
+)
 
 DEFAULT_RSYNC_OPTIONS = ["-a", "-v", "-z", "--partial", "--stats"]
 DEFAULT_EXCLUDES = [
@@ -200,6 +209,8 @@ class Config(StrictModel):
     truenas: TrueNASConfig = Field(default_factory=TrueNASConfig)
     ui: UIConfig = Field(default_factory=UIConfig)
     history: HistoryConfig = Field(default_factory=HistoryConfig)
+    # Paused from the UI until restart: not a file key, so a private attribute set by the loader
+    _paused: frozenset[str] = PrivateAttr(default=frozenset())
 
     @model_validator(mode="after")
     def cross_checks(self) -> Self:
@@ -218,4 +229,14 @@ class Config(StrictModel):
 
     @property
     def enabled_folders(self) -> list[FolderConfig]:
-        return [folder for folder in self.folders if folder.enabled]
+        """The folders a run covers: enabled in the file and not paused from the UI."""
+        return [f for f in self.folders if f.enabled and f.name not in self._paused]
+
+    @property
+    def paused_folders(self) -> frozenset[str]:
+        return self._paused
+
+    def set_paused(self, names: Iterable[str]) -> None:
+        """Remember which folders the UI paused; names the file no longer has are dropped."""
+        known = {folder.name for folder in self.folders}
+        self._paused = frozenset(name for name in names if name in known)

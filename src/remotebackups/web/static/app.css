@@ -73,6 +73,10 @@ table { width: 100%; border-collapse: collapse; font-size: 14px; }
 th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--border); white-space: nowrap; }
 td.path { white-space: normal; word-break: break-all; color: var(--muted); }
 td.chips .badge + .badge { margin-left: 6px; }
+th.pause, td.pause { text-align: center; width: 1%; }
+td.pause input { accent-color: var(--warn); margin: 0; cursor: pointer; width: 16px; height: 16px; vertical-align: middle; }
+td.pause input:disabled { cursor: default; opacity: .4; }
+#folders-notice { margin: 0 0 10px; }
 tbody tr { cursor: pointer; }
 tbody tr:hover { background: color-mix(in srgb, var(--accent) 8%, transparent); }
 tbody tr.selected { background: color-mix(in srgb, var(--accent) 16%, transparent); }

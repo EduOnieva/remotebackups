@@ -9,7 +9,8 @@ through Tailscale, or a machine on your LAN.
 
 - **Scheduled and manual runs.** A cron expression for the schedule, a Run button for now,
   a *Run with delete* button when you want the backup to drop files you deleted locally, and
-  a *Dry run* checkbox to preview either.
+  a *Dry run* checkbox to preview either. A folder can be paused from the UI until the
+  container restarts.
 - **Stop.** A running backup can be stopped from the UI; rsync keeps partial files and the
   next run continues where it stopped.
 - **Live log and history.** Every run has its own log, streamed live while it runs and kept
@@ -191,11 +192,18 @@ starts; click the new run to follow it. Buttons: **Run**, **Run with delete**, *
 **Clear history**, and a **Dry run** checkbox that applies to the next Run or Run with delete.
 The layout works on a phone.
 
+Each row of the Folders card has a **Pause** box. Ticking it pauses the folder: runs skip
+it until the container restarts, which forgets every pause, and the card says so while any
+folder is paused. The permanent switch stays in `config.yaml` (`enabled: false`); a folder
+disabled there has no box, since it cannot be turned on from the UI. Pausing is refused
+while a run is active, since it could only apply to the next one.
+
 | Endpoint | What it returns |
 |---|---|
 | `GET /healthz` | 200 while the scheduler loop is alive, 503 otherwise (for Docker's HEALTHCHECK) |
 | `GET /api/status` | State, current and last run, next scheduled run, remote reachability |
-| `GET /api/folders` | The configured folders and whether each source exists |
+| `GET /api/folders` | The configured folders, whether each source exists and whether it is paused |
+| `PUT /api/folders/{name}` | Body `{"paused": true}` or `false`. 409 while a run is active, 400 for a folder disabled in `config.yaml` |
 | `POST /api/runs` | Start a run; body `{"delete": false, "dry_run": false, "folders": ["documents"]}` is optional. 409 while a run is active |
 | `POST /api/runs/current/cancel` | Stop the active run |
 | `POST /api/remote/check` | Probe the SSH login now instead of waiting for the periodic check |

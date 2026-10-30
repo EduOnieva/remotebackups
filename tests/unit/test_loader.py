@@ -3,6 +3,7 @@ import yaml
 
 from remotebackups.config import ConfigError, EnvSettings, dump_config, load_config
 from remotebackups.config.loader import EXAMPLE_TEXT, ensure_config_files
+from remotebackups.config.paused import PausedFolders
 from remotebackups.paths import ConfigPaths
 
 MINIMAL = """
@@ -28,6 +29,25 @@ def test_existing_config_is_kept(paths: ConfigPaths) -> None:
 
     assert ensure_config_files(paths) is False
     assert paths.config_file.read_text() == MINIMAL
+
+
+def test_paused_folders_are_skipped_and_unknown_names_dropped(paths: ConfigPaths) -> None:
+    paths.config_file.write_text(
+        MINIMAL + "  - source: /data/photos\n    destination: /mnt/backup/photos\n"
+    )
+    store = PausedFolders(paths.paused_file)
+    store.set("photos", paused=True)
+    store.set("renamed-away", paused=True)
+
+    config = load_config(paths, EnvSettings())
+
+    assert config.paused_folders == {"photos"}
+    assert [f.name for f in config.enabled_folders] == ["docs"]
+    assert [f.name for f in config.folders] == ["docs", "photos"], "still listed"
+    assert dump_config(config, redact=True).endswith(
+        "# paused from the UI until the container restarts: photos\n"
+    )
+    assert "paused" not in config.model_dump(mode="json"), "not a key anyone can write"
 
 
 def test_missing_file_means_defaults(paths: ConfigPaths) -> None:

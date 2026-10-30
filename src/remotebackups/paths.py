@@ -37,6 +37,11 @@ class ConfigPaths:
     def default_ssh_key(self) -> Path:
         return self.secrets_dir / "ssh_key"
 
+    @property
+    def paused_file(self) -> Path:
+        """Folders paused from the UI; in the runtime dir so it never survives a redeploy."""
+        return self.runtime_dir / "paused_folders.json"
+
     def ensure(self) -> None:
         """Create the directories the app writes to. The ssh ones are private to root."""
         self.config_dir.mkdir(parents=True, exist_ok=True)

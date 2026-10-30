@@ -36,7 +36,7 @@ folders: []
 #    excludes: ["*.tmp"]       # added to rsync.excludes for this folder
 #    extra_options: []
 #    allow_delete: true        # false makes "Run with delete" skip --delete for this folder
-#    enabled: true
+#    enabled: true             # false keeps it listed but skipped; the UI can also pause a folder until restart
 
 # Optional TrueNAS SCALE status (alert count and free space per pool) for /api/pool_status.
 truenas:

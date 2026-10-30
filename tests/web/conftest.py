@@ -6,6 +6,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from remotebackups.config import Config
+from remotebackups.config.paused import PausedFolders
 from remotebackups.paths import ConfigPaths
 from remotebackups.sync import (
     FolderResult,
@@ -106,6 +107,7 @@ class FakeTrueNAS:
 
 @dataclass
 class Harness:
+    paths: ConfigPaths
     config: Config
     history: RunHistory
     engine: FakeEngine
@@ -151,6 +153,7 @@ def harness(paths: ConfigPaths, clock: FakeClock, make_config: Callable[..., Con
     config = make_config()
     history = RunHistory(paths.runs_dir, keep_days=40, clock=clock)
     return Harness(
+        paths=paths,
         config=config,
         history=history,
         engine=FakeEngine(history, config, clock),
@@ -171,6 +174,7 @@ async def client(harness: Harness) -> AsyncIterator[AsyncClient]:
         scheduler_alive=lambda: harness.scheduler_alive,
         remote_status=lambda: harness.remote,
         probe_remote=harness.remote.probe,
+        paused=PausedFolders(harness.paths.paused_file),
         version="2.0.0-test",
         started_at=harness.clock.now(),
     )

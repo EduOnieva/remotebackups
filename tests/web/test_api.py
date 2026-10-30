@@ -1,5 +1,6 @@
 from httpx import AsyncClient
 
+from remotebackups.config import FolderConfig
 from remotebackups.sync import RunOutcome
 from remotebackups.truenas.models import AlertInfo, PoolInfo
 from remotebackups.truenas.service import TrueNASDetails
@@ -70,6 +71,52 @@ async def test_folders(client: AsyncClient) -> None:
     assert [f["name"] for f in body] == ["docs", "photos"]
     assert body[0]["source_exists"] is True
     assert body[0]["allow_delete"] is True
+
+
+async def test_pause_and_resume_a_folder(client: AsyncClient, harness: Harness) -> None:
+    paused = await client.put("/api/folders/photos", json={"paused": True})
+    assert paused.status_code == 200
+    assert paused.json()["paused"] is True
+    listed = (await client.get("/api/folders")).json()
+    assert [(f["name"], f["paused"]) for f in listed] == [("docs", False), ("photos", True)]
+    assert harness.paths.paused_file.exists()
+
+    resumed = await client.put("/api/folders/photos", json={"paused": False})
+    assert resumed.json()["paused"] is False
+    assert not harness.paths.paused_file.exists()
+
+
+async def test_pause_is_refused_while_a_run_is_active(
+    client: AsyncClient, harness: Harness
+) -> None:
+    await client.post("/api/runs")
+    response = await client.put("/api/folders/docs", json={"paused": True})
+    assert response.status_code == 409
+    assert "while a run is active" in response.json()["detail"]
+    assert harness.engine.current is not None
+
+
+async def test_pause_needs_a_known_folder_that_the_file_enables(
+    client: AsyncClient, harness: Harness
+) -> None:
+    assert (await client.put("/api/folders/nope", json={"paused": True})).status_code == 404
+
+    disabled = FolderConfig(name="old", source="/data/old", destination="/mnt/old", enabled=False)
+    harness.config = harness.config.model_copy(
+        update={"folders": [*harness.config.folders, disabled]}
+    )
+    response = await client.put("/api/folders/old", json={"paused": True})
+    assert response.status_code == 400
+    assert "disabled in config.yaml" in response.json()["detail"]
+    assert (await client.get("/api/folders")).json()[2] == {
+        "name": "old",
+        "source": "/data/old",
+        "destination": "/mnt/old",
+        "enabled": False,
+        "paused": False,
+        "allow_delete": True,
+        "source_exists": False,
+    }
 
 
 async def test_start_run_accepted_then_conflict(client: AsyncClient, harness: Harness) -> None:

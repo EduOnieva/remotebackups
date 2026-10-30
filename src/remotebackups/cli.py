@@ -91,8 +91,11 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "check-config":
         enabled = len(config.enabled_folders)
+        paused = (
+            f", {len(config.paused_folders)} paused from the UI" if config.paused_folders else ""
+        )
         print(
-            f"OK: {enabled} enabled folder(s) of {len(config.folders)}, "
+            f"OK: {enabled} enabled folder(s) of {len(config.folders)}{paused}, "
             f"schedule {config.schedule.cron or 'disabled'}, "
             f"TrueNAS {'on' if config.truenas.is_enabled else 'off'}"
         )

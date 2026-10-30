@@ -1,5 +1,6 @@
 """The JSON API under /api."""
 
+import logging
 import re
 from pathlib import Path
 from typing import Annotated, Any
@@ -7,7 +8,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.responses import FileResponse, PlainTextResponse, StreamingResponse
 
-from remotebackups.config import ConfigError
+from remotebackups.config import ConfigError, FolderConfig
 from remotebackups.sync import (
     RunAlreadyActiveError,
     RunOptions,
@@ -19,6 +20,7 @@ from remotebackups.sync import (
 from remotebackups.truenas.service import TrueNASDetails
 from remotebackups.web.schemas import (
     FolderInfo,
+    FolderUpdate,
     RemoteInfo,
     RunAccepted,
     RunDetail,
@@ -28,6 +30,8 @@ from remotebackups.web.schemas import (
 )
 from remotebackups.web.services import RemoteStatusLike, Services
 from remotebackups.web.sse import stream_run_log
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api")
 
@@ -110,18 +114,43 @@ async def check_remote(request: Request) -> RemoteInfo:
 
 @router.get("/folders", response_model=list[FolderInfo])
 async def folders(request: Request) -> list[FolderInfo]:
-    config = services(request).config_provider()
-    return [
-        FolderInfo(
-            name=f.name,
-            source=f.source,
-            destination=f.destination,
-            enabled=f.enabled,
-            allow_delete=f.allow_delete,
-            source_exists=_exists(f.source),
-        )
-        for f in config.folders
-    ]
+    svc = services(request)
+    paused = svc.paused.names()
+    return [_folder_info(f, paused) for f in svc.config_provider().folders]
+
+
+@router.put("/folders/{name}", response_model=FolderInfo, dependencies=mutating)
+async def update_folder(request: Request, name: str, body: FolderUpdate) -> FolderInfo:
+    """Pause a folder until the container restarts, or resume it.
+
+    Refused during a run: the run already has its folder list, and a toggle that only
+    applies next time would look like it did nothing.
+    """
+    svc = services(request)
+    if svc.engine.current is not None:
+        raise HTTPException(409, "cannot pause or resume folders while a run is active")
+    folder = next((f for f in svc.config_provider().folders if f.name == name), None)
+    if folder is None:
+        raise HTTPException(404, f"folder {name} not found")
+    if not folder.enabled:
+        raise HTTPException(400, f"folder {name} is disabled in config.yaml; edit the file")
+    paused = svc.paused.set(name, paused=body.paused)
+    logger.info(
+        "Folder %s from the UI: folder_name=%s", "paused" if body.paused else "resumed", name
+    )
+    return _folder_info(folder, paused)
+
+
+def _folder_info(folder: FolderConfig, paused: frozenset[str]) -> FolderInfo:
+    return FolderInfo(
+        name=folder.name,
+        source=folder.source,
+        destination=folder.destination,
+        enabled=folder.enabled,
+        paused=folder.name in paused,
+        allow_delete=folder.allow_delete,
+        source_exists=_exists(folder.source),
+    )
 
 
 @router.post("/runs", response_model=RunAccepted, status_code=202, dependencies=mutating)

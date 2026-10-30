@@ -179,6 +179,22 @@ async def test_second_start_is_refused_while_running(
     await engine.wait()
 
 
+async def test_paused_folder_is_skipped_and_cannot_be_named(
+    paths: ConfigPaths, history: RunHistory, clock: FakeClock, make_config: Callable[..., Config]
+) -> None:
+    config = make_config()
+    config.set_paused(["photos"])
+    engine = SyncEngine(lambda: config, paths, history, clock)
+
+    with pytest.raises(UnknownFolderError):
+        await engine.start(RunTrigger.MANUAL, RunOptions(folders=["photos"]))
+    await engine.start(RunTrigger.MANUAL, RunOptions())
+    record = await engine.wait()
+
+    assert record is not None and [f.name for f in record.folders] == ["docs"]
+    assert "folders=1 paused=photos" in history.log_path(record.id).read_text()
+
+
 async def test_unknown_folder_names_are_rejected_before_anything_starts(engine: SyncEngine) -> None:
     with pytest.raises(UnknownFolderError, match="unknown or disabled folder\\(s\\): nope"):
         await engine.start(RunTrigger.MANUAL, RunOptions(folders=["docs", "nope"]))
