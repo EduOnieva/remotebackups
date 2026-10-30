@@ -75,8 +75,18 @@ const label = (outcome) => {
   const words = outcome.replace(/_/g, " ");
   return words.charAt(0).toUpperCase() + words.slice(1);
 };
-const runTitle = (runId, startedAt, live = false) =>
-  `Log · ${fmtTime(startedAt)}${live ? " (live)" : ""} · ${runId}.log`;
+// The file name in the title is the download link: a hint that the full log is one click away
+function setLogTitle(runId, startedAt, live = false) {
+  const title = $("log-title");
+  title.textContent = runId ? `Log · ${fmtTime(startedAt)}${live ? " (live)" : ""} · ` : "Log";
+  if (!runId) return;
+  const link = document.createElement("a");
+  link.href = `/api/runs/${runId}/log/download`;
+  link.download = "";
+  link.title = "Download the full log";
+  link.textContent = `${runId}.log`;
+  title.appendChild(link);
+}
 
 function renderStatus(s) {
   dateLocale = s.locale || undefined;
@@ -262,13 +272,12 @@ function flushLines() {
   if ($("follow").checked) log.scrollTop = log.scrollHeight;
 }
 
-function resetLog(runId, title) {
+function resetLog(runId, startedAt, live = false) {
   pendingLines = [];
   hiddenLines = 0;
   logNotice = "";
   $("log").textContent = "";
-  $("log-title").textContent = title;
-  $("log-download").href = `/api/runs/${runId}/log/download`;
+  setLogTitle(runId, startedAt, live);
   updateLogNotice();
 }
 
@@ -276,7 +285,7 @@ function updateLogNotice() {
   const parts = [];
   if (logNotice) parts.push(logNotice);
   if (hiddenLines) parts.push(`${hiddenLines} earlier lines dropped from the view`);
-  $("log-notice-text").textContent = parts.join(" · ");
+  $("log-notice").textContent = parts.join(" · ");
   $("log-notice").hidden = !parts.length;
 }
 
@@ -288,11 +297,11 @@ function follow(runId, startedAt) {
   closeStream();
   selectedRun = runId;
   liveRun = runId;
-  resetLog(runId, runTitle(runId, startedAt, true));
+  resetLog(runId, startedAt, true);
   renderRuns();
   stream = new EventSource(`/api/runs/${runId}/log/stream`);
   stream.addEventListener("line", (e) => appendLine(e.data));
-  stream.addEventListener("end", () => { closeStream(); flushLines(); $("log-title").textContent = runTitle(runId, startedAt); loadRuns(); loadStatus(); });
+  stream.addEventListener("end", () => { closeStream(); flushLines(); setLogTitle(runId, startedAt); loadRuns(); loadStatus(); });
   stream.onerror = () => { /* the browser reconnects with Last-Event-ID on its own */ };
 }
 
@@ -301,7 +310,7 @@ async function showRun(runId) {
   selectedRun = runId;
   renderRuns();
   const run = runs.find((r) => r.id === runId);
-  resetLog(runId, runTitle(runId, run ? run.started_at : null));
+  resetLog(runId, run ? run.started_at : null);
   try {
     // Only the end of a finished log is shown; the full file is one click away
     const response = await fetch(`/api/runs/${runId}/log?tail=${LOG_TAIL_BYTES}`);
@@ -332,7 +341,7 @@ async function stopRun() {
 
 async function clearHistory() {
   if (!confirm("Delete all run records and logs?")) return;
-  try { await api("/api/runs", { method: "DELETE" }); selectedRun = null; resetLog("", "Log"); $("log-download").removeAttribute("href"); await loadRuns(); await loadStatus(); }
+  try { await api("/api/runs", { method: "DELETE" }); selectedRun = null; resetLog(null); await loadRuns(); await loadStatus(); }
   catch (e) { toast(e.message, true); }
 }
 
@@ -342,12 +351,12 @@ $("stop").onclick = stopRun;
 // The button sits inside a <summary>; without preventDefault the click would also fold the card
 $("clear").onclick = (e) => { e.preventDefault(); clearHistory(); };
 
-// Which cards are folded is a per-browser preference, so it lives in localStorage (best effort)
+// Cards start folded; which ones you unfold is a per-browser preference kept in localStorage
 for (const card of document.querySelectorAll("details.card")) {
-  const key = `remotebackups.collapsed.${card.id}`;
-  try { if (localStorage.getItem(key) === "1") card.open = false; } catch { /* storage unavailable */ }
+  const key = `remotebackups.open.${card.id}`;
+  try { card.open = localStorage.getItem(key) === "1"; } catch { /* storage unavailable */ }
   card.addEventListener("toggle", () => {
-    try { localStorage.setItem(key, card.open ? "0" : "1"); } catch { /* storage unavailable */ }
+    try { localStorage.setItem(key, card.open ? "1" : "0"); } catch { /* storage unavailable */ }
   });
 }
 
