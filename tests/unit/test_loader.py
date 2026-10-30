@@ -16,20 +16,18 @@ folders:
 def test_example_is_valid_yaml_that_loads_as_an_empty_config(paths: ConfigPaths) -> None:
     assert ensure_config_files(paths) is True
     assert paths.config_file.read_text() == EXAMPLE_TEXT
-    assert paths.example_file.read_text() == EXAMPLE_TEXT
+    assert sorted(p.name for p in paths.config_dir.iterdir() if p.is_file()) == ["config.yaml"]
 
     config = load_config(paths, EnvSettings())
     assert config.folders == []
     assert config.schedule.cron == "30 2 * * 1"
 
 
-def test_existing_config_is_kept_but_example_is_refreshed(paths: ConfigPaths) -> None:
+def test_existing_config_is_kept(paths: ConfigPaths) -> None:
     paths.config_file.write_text(MINIMAL)
-    paths.example_file.write_text("stale")
 
     assert ensure_config_files(paths) is False
     assert paths.config_file.read_text() == MINIMAL
-    assert paths.example_file.read_text() == EXAMPLE_TEXT
 
 
 def test_missing_file_means_defaults(paths: ConfigPaths) -> None:

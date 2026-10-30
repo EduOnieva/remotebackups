@@ -237,7 +237,9 @@ renamed with `TRUENAS_POOL_ALIASES` so dashboards keep stable keys.
   for releases, `develop` for the current main branch, on Docker Hub
   (`eduonieva/remotebackups`) and GHCR (`ghcr.io/eduonieva/remotebackups`), for amd64 and arm64.
 - **CLI.** `docker exec remotebackups remotebackups check-config | print-config --redact |
-  print-example-config | run-once [--delete] [--folder NAME]`.
+  print-example-config | run-once [--delete] [--folder NAME]`. After an upgrade,
+  `print-example-config` shows the current template with any new keys; nothing in `/config`
+  is rewritten behind your back.
 
 ## Migrating from version 1 (rsync-tailscale-docker)
 

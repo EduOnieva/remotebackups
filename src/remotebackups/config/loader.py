@@ -35,11 +35,11 @@ def load_config(paths: ConfigPaths, env: EnvSettings) -> Config:
 
 
 def ensure_config_files(paths: ConfigPaths) -> bool:
-    """Create config.yaml from the example when missing; always refresh the example.
+    """Create config.yaml from the commented example when missing.
 
-    Returns True when config.yaml was created, so the caller can tell the user.
+    Returns True when it was created, so the caller can tell the user. The example itself
+    is not written to /config: `print-example-config` prints the current one on demand.
     """
-    paths.example_file.write_text(EXAMPLE_TEXT, encoding="utf-8")
     if paths.config_file.exists():
         return False
     paths.config_file.write_text(EXAMPLE_TEXT, encoding="utf-8")

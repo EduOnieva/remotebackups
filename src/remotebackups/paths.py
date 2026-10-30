@@ -18,10 +18,6 @@ class ConfigPaths:
         return self.config_dir / "config.yaml"
 
     @property
-    def example_file(self) -> Path:
-        return self.config_dir / "config.example.yaml"
-
-    @property
     def ssh_dir(self) -> Path:
         return self.config_dir / "ssh"
 

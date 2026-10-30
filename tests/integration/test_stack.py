@@ -104,9 +104,9 @@ def seed_data() -> None:
             handle.write(os.urandom(1024 * 1024))
 
 
-def test_first_start_wrote_the_example_and_a_config(app: httpx.Client) -> None:
-    assert (APP_CONFIG / "config.example.yaml").exists()
+def test_first_start_wrote_a_config(app: httpx.Client) -> None:
     assert (APP_CONFIG / "config.yaml").exists()
+    assert not (APP_CONFIG / "config.example.yaml").exists()
     status = app.get("/api/status").json()
     assert status["state"] == "idle"
     assert status["schedule"] is None, "CRON_SCHEDULE is empty in the stack"
