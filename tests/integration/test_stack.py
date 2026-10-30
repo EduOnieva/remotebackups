@@ -110,7 +110,10 @@ def test_first_start_wrote_a_config(app: httpx.Client) -> None:
     status = app.get("/api/status").json()
     assert status["state"] == "idle"
     assert status["schedule"] is None, "CRON_SCHEDULE is empty in the stack"
-    assert status["remote"]["ok"] is True, status["remote"]
+    # The first SSH probe runs in the background after the web server is up, so it may still
+    # be in flight when the stack reports healthy
+    wait_until(lambda: app.get("/api/status").json()["remote"]["ok"] is not None, 30, "the probe")
+    assert app.get("/api/status").json()["remote"]["ok"] is True
 
 
 def test_manual_run_copies_the_folder(app: httpx.Client) -> None:
