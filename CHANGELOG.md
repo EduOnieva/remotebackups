@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 2.2 - 2026-10-30
 
 ### Changed
 - Denser cards, and the Status, Note and Notes columns of the folder tables are centred.
