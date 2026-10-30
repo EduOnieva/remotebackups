@@ -28,6 +28,7 @@ let pinned = false;
 let knownCurrent = null;
 let folderList = [];
 let isRunning = false;
+let schedulePaused = false;
 
 async function api(path, options = {}) {
   const response = await fetch(path, { headers: { "Content-Type": "application/json" }, ...options });
@@ -140,9 +141,18 @@ function renderStatus(s) {
   renderProgress(current);
   renderLastRun(s.last_run, running);
   const next = $("next-run");
-  next.textContent = s.next_run_at ? `${fmtRelative(s.next_run_at)} · ${fmtTime(s.next_run_at, false)}`
-    : (s.schedule ? "computing…" : "schedule disabled");
+  schedulePaused = s.schedule_paused;
+  const when = s.next_run_at ? `${fmtRelative(s.next_run_at)} · ${fmtTime(s.next_run_at, false)}` : "";
+  next.textContent = !s.schedule ? "schedule disabled"
+    : s.schedule_paused ? `paused · ${when || "the next run"} will be skipped`
+    : (when || "computing…");
+  next.className = s.schedule_paused ? "warn-text" : "";
   next.title = s.schedule ? `cron: ${s.schedule}` : "";
+  const pauseButton = $("schedule-pause");
+  pauseButton.hidden = !s.schedule;
+  pauseButton.textContent = s.schedule_paused ? "Resume schedule" : "Pause schedule";
+  pauseButton.title = s.schedule_paused ? "Scheduled runs happen again"
+    : "Skip scheduled runs until the container restarts; manual runs still work";
   $("run").disabled = running;
   $("run-delete").disabled = running;
   $("dry-run").disabled = running;
@@ -213,6 +223,14 @@ function renderRemote(remote) {
   if (remote.host_key_policy === "insecure") policy.className = "warn-text";
   policy.textContent = HOST_KEY_LABEL[remote.host_key_policy] || remote.host_key_policy;
   details.appendChild(policy);
+}
+
+async function setSchedulePaused(paused) {
+  try {
+    await api("/api/schedule", { method: "PUT", body: JSON.stringify({ paused }) });
+    toast(paused ? "Schedule paused until the container restarts" : "Schedule resumed");
+  } catch (e) { toast(e.message, true); }
+  await loadStatus();
 }
 
 async function checkRemote() {
@@ -579,6 +597,7 @@ $("run-delete").onclick = () => startRun(true);
 $("dry-run").onclick = () => startRun(false, true);
 $("stop").onclick = stopRun;
 $("check-remote").onclick = checkRemote;
+$("schedule-pause").onclick = () => setSchedulePaused(!schedulePaused);
 $("log").addEventListener("scroll", onLogScroll);
 $("jump").onclick = () => { $("log").scrollTop = $("log").scrollHeight; };
 // The button sits inside a <summary>; without preventDefault the click would also fold the card

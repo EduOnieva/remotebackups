@@ -6,7 +6,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from remotebackups.config import Config
-from remotebackups.config.paused import PausedFolders
+from remotebackups.config.paused import Pauses
 from remotebackups.paths import ConfigPaths
 from remotebackups.sync import (
     FolderResult,
@@ -174,7 +174,7 @@ async def client(harness: Harness) -> AsyncIterator[AsyncClient]:
         scheduler_alive=lambda: harness.scheduler_alive,
         remote_status=lambda: harness.remote,
         probe_remote=harness.remote.probe,
-        paused=PausedFolders(harness.paths.paused_file),
+        pauses=Pauses(harness.paths.pauses_file),
         version="2.0.0-test",
         started_at=harness.clock.now(),
     )

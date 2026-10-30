@@ -3,7 +3,7 @@ import pytest
 from remotebackups import __version__
 from remotebackups.cli import main
 from remotebackups.config.loader import EXAMPLE_TEXT
-from remotebackups.config.paused import PausedFolders
+from remotebackups.config.paused import Pauses
 from remotebackups.paths import ConfigPaths
 
 
@@ -44,10 +44,15 @@ def test_check_config_counts_paused_folders(
         "  - {source: /data/docs, destination: /mnt/docs}\n"
         "  - {source: /data/music, destination: /mnt/music}\n"
     )
-    PausedFolders(paths.paused_file).set("music", paused=True)
+    store = Pauses(paths.pauses_file)
+    store.set_folder("music", paused=True)
+    store.set_schedule(paused=True)
 
     assert main(["check-config"]) == 0
-    assert capsys.readouterr().out.startswith("OK: 1 enabled folder(s) of 2, 1 paused from the UI,")
+    assert capsys.readouterr().out.strip() == (
+        "OK: 1 enabled folder(s) of 2, 1 paused from the UI, "
+        "schedule 30 2 * * 1 (paused from the UI), TrueNAS off"
+    )
 
 
 def test_check_config_reports_problems_on_stderr_with_exit_2(

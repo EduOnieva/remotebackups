@@ -79,11 +79,38 @@ async def test_pause_and_resume_a_folder(client: AsyncClient, harness: Harness) 
     assert paused.json()["paused"] is True
     listed = (await client.get("/api/folders")).json()
     assert [(f["name"], f["paused"]) for f in listed] == [("docs", False), ("photos", True)]
-    assert harness.paths.paused_file.exists()
+    assert harness.paths.pauses_file.exists()
 
     resumed = await client.put("/api/folders/photos", json={"paused": False})
     assert resumed.json()["paused"] is False
-    assert not harness.paths.paused_file.exists()
+    assert not harness.paths.pauses_file.exists()
+
+
+async def test_pause_and_resume_the_schedule(client: AsyncClient, harness: Harness) -> None:
+    harness.next_run_at = harness.clock.now()
+    assert (await client.get("/api/status")).json()["schedule_paused"] is False
+
+    paused = await client.put("/api/schedule", json={"paused": True})
+    assert paused.status_code == 200
+    assert paused.json()["paused"] is True
+    assert paused.json()["cron"] == harness.config.schedule.cron
+    assert (await client.get("/api/status")).json()["schedule_paused"] is True
+    assert harness.paths.pauses_file.exists()
+
+    resumed = await client.put("/api/schedule", json={"paused": False})
+    assert resumed.json()["paused"] is False
+    assert not harness.paths.pauses_file.exists()
+
+
+async def test_pausing_a_disabled_schedule_is_refused(
+    client: AsyncClient, harness: Harness
+) -> None:
+    harness.config = harness.config.model_copy(
+        update={"schedule": harness.config.schedule.model_copy(update={"cron": None})}
+    )
+    response = await client.put("/api/schedule", json={"paused": True})
+    assert response.status_code == 400
+    assert "no schedule to pause" in response.json()["detail"]
 
 
 async def test_pause_is_refused_while_a_run_is_active(

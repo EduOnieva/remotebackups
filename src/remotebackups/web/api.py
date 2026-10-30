@@ -26,6 +26,8 @@ from remotebackups.web.schemas import (
     RunDetail,
     RunRequest,
     RunSummary,
+    ScheduleInfo,
+    ScheduleUpdate,
     StatusResponse,
 )
 from remotebackups.web.services import RemoteStatusLike, Services
@@ -95,6 +97,7 @@ async def status(request: Request) -> StatusResponse:
         last_run=_last_finished(svc),
         next_run_at=svc.next_run_at(),
         schedule=config.schedule.cron,
+        schedule_paused=svc.pauses.schedule(),
         remote=_remote_info(svc, svc.remote_status()),
         truenas_enabled=svc.truenas.enabled,
         dark_theme=config.ui.dark_theme,
@@ -115,7 +118,7 @@ async def check_remote(request: Request) -> RemoteInfo:
 @router.get("/folders", response_model=list[FolderInfo])
 async def folders(request: Request) -> list[FolderInfo]:
     svc = services(request)
-    paused = svc.paused.names()
+    paused = svc.pauses.folders()
     return [_folder_info(f, paused) for f in svc.config_provider().folders]
 
 
@@ -134,11 +137,27 @@ async def update_folder(request: Request, name: str, body: FolderUpdate) -> Fold
         raise HTTPException(404, f"folder {name} not found")
     if not folder.enabled:
         raise HTTPException(400, f"folder {name} is disabled in config.yaml; edit the file")
-    paused = svc.paused.set(name, paused=body.paused)
+    paused = svc.pauses.set_folder(name, paused=body.paused).folders
     logger.info(
         "Folder %s from the UI: folder_name=%s", "paused" if body.paused else "resumed", name
     )
     return _folder_info(folder, paused)
+
+
+@router.put("/schedule", response_model=ScheduleInfo, dependencies=mutating)
+async def update_schedule(request: Request, body: ScheduleUpdate) -> ScheduleInfo:
+    """Pause scheduled runs until the container restarts, or resume them.
+
+    Due runs are skipped while paused, never deferred, so resuming starts nothing by itself.
+    Manual runs are not affected.
+    """
+    svc = services(request)
+    cron = svc.config_provider().schedule.cron
+    if cron is None:
+        raise HTTPException(400, "there is no schedule to pause; schedule.cron is not set")
+    state = svc.pauses.set_schedule(paused=body.paused)
+    logger.info("Schedule %s from the UI", "paused" if body.paused else "resumed")
+    return ScheduleInfo(cron=cron, paused=state.schedule, next_run_at=svc.next_run_at())
 
 
 def _folder_info(folder: FolderConfig, paused: frozenset[str]) -> FolderInfo:

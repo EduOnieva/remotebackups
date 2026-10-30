@@ -13,7 +13,7 @@ from httpx import AsyncClient
 from remotebackups.app import Application, WebStartError
 from remotebackups.cli import main
 from remotebackups.config import ConfigError, EnvSettings
-from remotebackups.config.paused import PausedFolders
+from remotebackups.config.paused import Pauses
 from remotebackups.paths import ConfigPaths
 from remotebackups.scheduler import CronScheduler
 from remotebackups.sync import RunOptions, RunOutcome, RunTrigger
@@ -206,7 +206,9 @@ async def test_busy_web_port_is_one_sentence_and_a_clean_exit(
 async def test_startup_forgets_folders_paused_before_the_restart(
     configured: Path, paths: ConfigPaths, caplog: pytest.LogCaptureFixture
 ) -> None:
-    PausedFolders(paths.paused_file).set("docs", paused=True)
+    store = Pauses(paths.pauses_file)
+    store.set_folder("docs", paused=True)
+    store.set_schedule(paused=True)
     app = Application(EnvSettings(), paths)
     with caplog.at_level(logging.INFO, logger="remotebackups.app"):
         task = asyncio.create_task(app.run())
@@ -214,5 +216,6 @@ async def test_startup_forgets_folders_paused_before_the_restart(
         app.request_shutdown("test")
         assert await task == 0
 
-    assert not paths.paused_file.exists()
+    assert not paths.pauses_file.exists()
     assert "Folders paused before the restart run again: docs" in caplog.text
+    assert "The schedule paused before the restart is active again" in caplog.text

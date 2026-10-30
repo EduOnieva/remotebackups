@@ -209,8 +209,9 @@ class Config(StrictModel):
     truenas: TrueNASConfig = Field(default_factory=TrueNASConfig)
     ui: UIConfig = Field(default_factory=UIConfig)
     history: HistoryConfig = Field(default_factory=HistoryConfig)
-    # Paused from the UI until restart: not a file key, so a private attribute set by the loader
+    # Paused from the UI until restart: not file keys, so private attributes set by the loader
     _paused: frozenset[str] = PrivateAttr(default=frozenset())
+    _schedule_paused: bool = PrivateAttr(default=False)
 
     @model_validator(mode="after")
     def cross_checks(self) -> Self:
@@ -240,3 +241,11 @@ class Config(StrictModel):
         """Remember which folders the UI paused; names the file no longer has are dropped."""
         known = {folder.name for folder in self.folders}
         self._paused = frozenset(name for name in names if name in known)
+
+    @property
+    def schedule_paused(self) -> bool:
+        """True while scheduled runs are skipped because the UI paused the schedule."""
+        return self._schedule_paused
+
+    def set_schedule_paused(self, paused: bool) -> None:
+        self._schedule_paused = paused

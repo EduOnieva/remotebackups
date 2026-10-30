@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.3 - 2026-10-30
+
+### Added
+- A **Pause schedule** button in the Status card (`PUT /api/schedule`): due runs are skipped until the container restarts, never deferred, so resuming starts nothing by itself. Manual runs are not affected. `check-config` and `print-config` say when the schedule is paused.
+
+### Changed
+- The folder pauses and the schedule pause share one file in the runtime directory, forgotten at every start.
+- README screenshots retaken at 1920px wide.
+
 ## 2.2 - 2026-10-30
 
 ### Changed

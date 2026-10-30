@@ -114,6 +114,31 @@ async def test_missed_tick_after_a_long_sleep_fires_once(
     assert scheduler.next_run_at > clock.now()
 
 
+async def test_paused_schedule_skips_the_due_run_and_moves_on(
+    clock: FakeClock, make_config: Callable[..., Config], caplog: pytest.LogCaptureFixture
+) -> None:
+    config = make_config(schedule={"cron": "30 1 * * *"})
+    config.set_schedule_paused(True)
+    engine = FakeEngine(clock)
+    clock.limit = datetime(2026, 10, 30, 0, 31, tzinfo=UTC)
+    scheduler = CronScheduler(provider_for(config), MADRID, engine, clock)
+    with caplog.at_level(logging.WARNING, logger="remotebackups.scheduler"):
+        await run_until(
+            scheduler, lambda: scheduler.next_run_at == datetime(2026, 10, 31, 1, 30, tzinfo=MADRID)
+        )
+
+    assert engine.calls == [], "skipped, not deferred"
+    assert "Scheduled run skipped: the schedule is paused from the UI" in caplog.text
+
+    # Resuming fires nothing by itself; the next occurrence runs as usual
+    config.set_schedule_paused(False)
+    await asyncio.sleep(0.01)
+    assert engine.calls == []
+    clock.limit = datetime(2026, 10, 31, 0, 31, tzinfo=UTC)
+    await run_until(scheduler, lambda: len(engine.calls) == 1)
+    assert engine.fired_at == [datetime(2026, 10, 31, 0, 30, tzinfo=UTC)]
+
+
 async def test_busy_engine_skips_with_a_warning(
     clock: FakeClock, make_config: Callable[..., Config], caplog: pytest.LogCaptureFixture
 ) -> None:

@@ -1,51 +1,77 @@
-"""Folders paused from the UI, kept in the runtime directory until the container restarts.
+"""Pauses set from the UI, kept in the runtime directory until the container restarts.
 
+Two kinds: folders that runs skip, and the schedule itself, whose due runs are skipped.
 A pause is deliberately short-lived: it lives outside /config so a redeploy never carries a
-forgotten pause, and the service deletes the file at every start. `enabled: false` in
-config.yaml is the permanent switch and the file never overrides it.
+forgotten pause, and the service deletes the file at every start. `enabled: false` and
+`schedule.cron` in config.yaml are the permanent switches and the file never overrides them.
 """
 
 import json
 import logging
+from dataclasses import dataclass
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
 
-class PausedFolders:
+@dataclass(frozen=True)
+class PauseState:
+    folders: frozenset[str] = frozenset()
+    schedule: bool = False
+
+    @property
+    def empty(self) -> bool:
+        return not self.folders and not self.schedule
+
+
+class Pauses:
     def __init__(self, path: Path) -> None:
         self._path = path
 
-    def names(self) -> frozenset[str]:
-        """The paused folder names; an unreadable file counts as nothing paused."""
+    def read(self) -> PauseState:
+        """What is paused; an unreadable file counts as nothing paused."""
         if not self._path.exists():
-            return frozenset()
+            return PauseState()
         try:
             data = json.loads(self._path.read_text(encoding="utf-8"))
-            names = data["paused"]
-            if not isinstance(names, list):
-                raise TypeError("paused is not a list")
-            return frozenset(str(name) for name in names)
-        except (OSError, ValueError, KeyError, TypeError) as exc:
+            folders = data.get("folders", [])
+            if not isinstance(folders, list):
+                raise TypeError("folders is not a list")
+            return PauseState(frozenset(str(n) for n in folders), bool(data.get("schedule", False)))
+        except (OSError, ValueError, AttributeError, TypeError) as exc:
             logger.warning("Ignoring unreadable pause file %s: %s", self._path, exc)
-            return frozenset()
+            return PauseState()
 
-    def set(self, folder_name: str, *, paused: bool) -> frozenset[str]:
-        names = set(self.names())
+    def folders(self) -> frozenset[str]:
+        return self.read().folders
+
+    def schedule(self) -> bool:
+        return self.read().schedule
+
+    def set_folder(self, folder_name: str, *, paused: bool) -> PauseState:
+        state = self.read()
+        folders = set(state.folders)
         if paused:
-            names.add(folder_name)
+            folders.add(folder_name)
         else:
-            names.discard(folder_name)
-        if names:
-            tmp = self._path.with_name(self._path.name + ".tmp")
-            tmp.write_text(json.dumps({"paused": sorted(names)}), encoding="utf-8")
-            tmp.replace(self._path)
-        else:
-            self._path.unlink(missing_ok=True)
-        return frozenset(names)
+            folders.discard(folder_name)
+        return self._write(PauseState(frozenset(folders), state.schedule))
 
-    def clear(self) -> frozenset[str]:
+    def set_schedule(self, *, paused: bool) -> PauseState:
+        return self._write(PauseState(self.read().folders, paused))
+
+    def clear(self) -> PauseState:
         """Forget every pause; returns what was forgotten so the caller can say so."""
-        names = self.names()
+        state = self.read()
         self._path.unlink(missing_ok=True)
-        return names
+        return state
+
+    def _write(self, state: PauseState) -> PauseState:
+        if state.empty:
+            self._path.unlink(missing_ok=True)
+            return state
+        tmp = self._path.with_name(self._path.name + ".tmp")
+        data = {"folders": sorted(state.folders), "schedule": state.schedule}
+        tmp.write_text(json.dumps(data), encoding="utf-8")
+        tmp.replace(self._path)
+        return state

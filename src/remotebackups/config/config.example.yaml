@@ -17,7 +17,8 @@ remote:
   # host_key: null            # a pinned "ssh-ed25519 AAAA..." line; implies strict
 
 schedule:
-  cron: "30 2 * * 1"          # CRON_SCHEDULE; empty or null disables scheduled runs
+  cron: "30 2 * * 1"          # CRON_SCHEDULE; empty or null disables scheduled runs. The UI can
+                              # pause the schedule until the container restarts
   rsync_timeout: 3600         # SCHEDULED_RSYNC_TIMEOUT: seconds of rsync inactivity before a
                               # scheduled run gives up on a folder. 0 disables. Manual runs never time out
 

@@ -81,6 +81,8 @@ class StatusResponse(BaseModel):
     last_run: RunSummary | None
     next_run_at: datetime | None
     schedule: str | None
+    # Paused from the UI until the container restarts; due runs are skipped meanwhile
+    schedule_paused: bool
     remote: RemoteInfo
     truenas_enabled: bool
     dark_theme: bool
@@ -103,6 +105,16 @@ class FolderInfo(BaseModel):
 
 class FolderUpdate(BaseModel):
     paused: bool
+
+
+class ScheduleUpdate(BaseModel):
+    paused: bool
+
+
+class ScheduleInfo(BaseModel):
+    cron: str | None
+    paused: bool
+    next_run_at: datetime | None
 
 
 class RunRequest(BaseModel):

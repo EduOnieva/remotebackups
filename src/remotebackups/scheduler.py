@@ -108,7 +108,16 @@ class CronScheduler:
 
     async def _fire(self) -> None:
         try:
-            timeout = self._config_provider().schedule.rsync_timeout or None
+            config = self._config_provider()
+        except ConfigError as exc:
+            logger.error("Scheduled run skipped, the configuration is invalid: %s", exc)
+            return
+        if config.schedule_paused:
+            # Skipped, not deferred: resuming must never start a backup on the spot
+            logger.warning("Scheduled run skipped: the schedule is paused from the UI")
+            return
+        try:
+            timeout = config.schedule.rsync_timeout or None
             record = await self._engine.start(
                 RunTrigger.SCHEDULED, RunOptions(rsync_timeout=timeout)
             )

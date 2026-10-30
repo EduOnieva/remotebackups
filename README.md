@@ -10,8 +10,8 @@ through Tailscale, or a machine on your LAN.
 
 - **Scheduled and manual runs.** A cron expression for the schedule, a Run button for now,
   a *Run with delete* button when you want the backup to drop files you deleted locally, and
-  a *Dry run* button that reports what a run would transfer. A folder can be paused from the
-  UI until the container restarts.
+  a *Dry run* button that reports what a run would transfer. The schedule, or a single
+  folder, can be paused from the UI until the container restarts.
 - **Stop.** A running backup can be stopped from the UI; rsync keeps partial files and the
   next run continues where it stopped.
 - **Live log and history.** Every run has its own log, streamed live while it runs and kept
@@ -102,6 +102,11 @@ title downloads the whole file. A run you selected stays on screen when a schedu
 starts; click the new run to follow it. Buttons: **Run**, **Run with delete**, **Dry run**,
 **Stop**, **Clear history**. The layout works on a phone.
 
+The Status card has a **Pause schedule** button. While the schedule is paused, due runs are
+skipped, never deferred, so resuming starts nothing by itself; manual runs still work. Like a
+folder pause, it lasts until the container restarts, and the card says which run will be
+skipped.
+
 Each row of the Folders card has two buttons. **Run** backs up that folder alone, as a
 plain manual run; the Runs table names the folder. **Pause** makes runs skip the folder
 until the container restarts, which forgets every pause, and the card says so while any
@@ -112,7 +117,7 @@ to the next one.
 
 ![A run in progress](docs/screenshots/running.png)
 
-*A run in progress: the Status card shows the folder being copied and the elapsed time, the log streams live.*
+*A run in progress: the Status card shows the folder being copied and the elapsed time, the log streams live. The schedule is paused here, so the card says which run will be skipped.*
 
 <img src="docs/screenshots/phone.png" width="360" alt="The page on a phone">
 
@@ -207,6 +212,7 @@ rsync -a -v -z --partial --stats --no-owner --no-group [--delete] [--dry-run] [-
   combined with `delete` to preview a deletion): rsync reports what it would transfer and
   touches nothing. The run is recorded like any other, marked as a dry run.
 - Editing `schedule.cron` in `config.yaml` moves the next scheduled run within a minute.
+  **Pause schedule** in the UI skips due runs until the container restarts.
 - **Stop** sends SIGTERM to the running rsync and skips the remaining folders. `--partial`
   keeps what was transferred; the next run resumes.
 - Only one run at a time. A second start is refused, and a scheduled run that finds another
@@ -220,6 +226,7 @@ rsync -a -v -z --partial --stats --no-owner --no-group [--delete] [--dry-run] [-
 | `GET /api/status` | State, current and last run, next scheduled run, remote reachability |
 | `GET /api/folders` | The configured folders, whether each source exists and whether it is paused |
 | `PUT /api/folders/{name}` | Body `{"paused": true}` or `false`. 409 while a run is active, 400 for a folder disabled in `config.yaml` |
+| `PUT /api/schedule` | Body `{"paused": true}` or `false`: skip scheduled runs until the container restarts. 400 when there is no schedule |
 | `POST /api/runs` | Start a run; body `{"delete": false, "dry_run": false, "folders": ["documents"]}` is optional. 409 while a run is active |
 | `POST /api/runs/current/cancel` | Stop the active run |
 | `POST /api/remote/check` | Probe the SSH login now instead of waiting for the periodic check |
