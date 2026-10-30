@@ -22,15 +22,20 @@ through Tailscale, or a machine on your LAN.
 
 ## Quick start
 
-1. Create a folder for the container's state and put your SSH private key in it:
+1. Create a folder for the container's state and a key pair used only for these backups:
 
    ```bash
    mkdir -p remotebackups/config/ssh
-   cp ~/.ssh/id_ed25519 remotebackups/config/ssh/
+   ssh-keygen -t ed25519 -N "" -C remotebackups -f remotebackups/config/ssh/remotebackups
+   cat remotebackups/config/ssh/remotebackups.pub
    ```
 
-   One key in `config/ssh` is picked up automatically. The matching public key goes into the
-   destination user's `authorized_keys` (on TrueNAS: the user's *Public SSH Key* field).
+   Add that public key to the destination user's `authorized_keys` (on TrueNAS: the user's
+   *Public SSH Key* field). One key in `config/ssh` is picked up automatically; the key must
+   have no passphrase because nobody is there to type it. A dedicated key means a problem
+   with this container can only ever reach the backup destination. If you prefer to keep an
+   existing key where it is, bind-mount the file instead:
+   `~/.ssh/id_ed25519:/config/ssh/id_ed25519:ro`.
 
 2. Save a compose file next to it. For a destination you can reach directly:
 
