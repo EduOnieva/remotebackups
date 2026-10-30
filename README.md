@@ -94,29 +94,29 @@ folders and rsync options in the file. `remotebackups print-config --redact` sho
 
 ### Environment variables
 
-| Variable | Default | Purpose |
+| Variable | Default | Detail |
 |---|---|---|
 | `REMOTE_HOST` | required | Destination host: IP, DNS or MagicDNS name |
 | `REMOTE_USER` | required | SSH user on the destination |
 | `REMOTE_PORT` | `22` | SSH port |
 | `SSH_KEY` | `/run/secrets/ssh_key` | Path of the private key inside the container; a bare name is looked up under `/run/secrets` |
 | `SSH_PASSWORD` | | Password authentication instead of a key. Works, but a key is the recommendation |
-| `SSH_HOST_KEY_POLICY` | `tofu` | `tofu` pins the host key on first use and refuses changes; `strict` requires a known key; `insecure` ignores host keys |
+| `SSH_HOST_KEY_POLICY` | `tofu` | `tofu` \| `strict` \| `insecure`: pin the host key on first use and refuse changes, require an already known key, or ignore host keys |
 | `CRON_SCHEDULE` | `30 2 * * 1` | When scheduled runs happen. Empty disables them |
 | `SCHEDULED_RSYNC_TIMEOUT` | `3600` | Seconds of rsync inactivity before a *scheduled* run gives up on a folder. `0` disables. Manual runs never time out |
 | `RSYNC_EXTRA_OPTIONS` | | Extra rsync flags for every folder, e.g. `--bwlimit=20m` |
 | `TRUENAS_API_KEY` | | Enables the TrueNAS status card and `/api/pool_status` details |
 | `TRUENAS_HOST` | `REMOTE_HOST` | TrueNAS address when it differs from the SSH host |
 | `TRUENAS_POOL_ALIASES` | | Rename pools in the response: `tank:disk-0,vault:disk-1` |
-| `TRUENAS_VERIFY_TLS` | `false` | Verify the TrueNAS certificate (home NAS boxes usually use a self-signed one) |
-| `TRUENAS_ENABLED` | `auto` | `auto` means on when an API key is set |
+| `TRUENAS_VERIFY_TLS` | `false` | `true` \| `false`: verify the TrueNAS certificate (home NAS boxes usually use a self-signed one) |
+| `TRUENAS_ENABLED` | `auto` | `auto` \| `true` \| `false`: `auto` means on when an API key is set |
 | `HISTORY_KEEP_DAYS` | `40` | Run records and logs older than this are deleted |
-| `UI_DARK_THEME` | `true` | |
+| `UI_DARK_THEME` | `true` | `true` \| `false`: dark or light theme |
 | `UI_LOCALE` | browser's | Date format in the UI as a BCP 47 tag, e.g. `es-ES` |
-| `UI_CLOCK` | `24h` | `24h` or `12h` |
+| `UI_CLOCK` | `24h` | `24h` \| `12h`: hour format in the UI |
 | `WEB_PORT` | `8080` | Only needed when another service in the same network namespace uses 8080 |
 | `TZ` | `Etc/UTC` | Schedule and log timestamps |
-| `LOG_LEVEL` | `INFO` | |
+| `LOG_LEVEL` | `INFO` | `DEBUG` \| `INFO` \| `WARNING` \| `ERROR`: how much the application logs to stdout |
 | `FILE__<VAR>` | | Read `<VAR>` from a file, e.g. `FILE__TRUENAS_API_KEY=/run/secrets/truenas` |
 
 ### config.yaml
