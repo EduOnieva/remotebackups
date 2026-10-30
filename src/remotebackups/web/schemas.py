@@ -75,6 +75,8 @@ class StatusResponse(BaseModel):
     remote: RemoteInfo
     truenas_enabled: bool
     dark_theme: bool
+    locale: str | None
+    clock: str
     version: str
     started_at: datetime
 

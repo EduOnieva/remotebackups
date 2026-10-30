@@ -102,6 +102,8 @@ folders and rsync options in the file. `remotebackups print-config --redact` sho
 | `TRUENAS_ENABLED` | `auto` | `auto` means on when an API key is set |
 | `HISTORY_KEEP_DAYS` | `40` | Run records and logs older than this are deleted |
 | `UI_DARK_THEME` | `true` | |
+| `UI_LOCALE` | browser's | Date format in the UI as a BCP 47 tag, e.g. `es-ES` |
+| `UI_CLOCK` | `24h` | `24h` or `12h` |
 | `WEB_PORT` | `8080` | Only needed when another service in the same network namespace uses 8080 |
 | `TZ` | `Etc/UTC` | Schedule and log timestamps |
 | `LOG_LEVEL` | `INFO` | |
@@ -135,6 +137,8 @@ truenas:
   cache_seconds: 30
 ui:
   dark_theme: true
+  locale: es-ES                    # dates in the UI; default: the browser's locale
+  clock: 24h
 history:
   keep_days: 40
   max_log_bytes: 52428800

@@ -36,7 +36,20 @@ function toast(message, bad = false) {
   el._timer = setTimeout(() => { el.hidden = true; }, 4000);
 }
 
-const fmtTime = (iso) => (iso ? new Date(iso).toLocaleString() : "–");
+// Date formatting follows ui.locale and ui.clock from the configuration (status response)
+let dateLocale;
+let hour12 = false;
+function fmtTime(iso, withSeconds = true) {
+  if (!iso) return "–";
+  // hourCycle rather than hour12: Chrome renders midnight as 24:00 with hour12:false
+  const options = { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: hour12 ? "h12" : "h23" };
+  if (withSeconds) options.second = "2-digit";
+  try {
+    return new Intl.DateTimeFormat(dateLocale, options).format(new Date(iso));
+  } catch {
+    return new Intl.DateTimeFormat(undefined, options).format(new Date(iso));
+  }
+}
 const fmtDuration = (s) => {
   if (s == null) return "–";
   const total = Math.round(s);
@@ -49,9 +62,16 @@ const fmtBytes = (n) => {
   const i = Math.min(units.length - 1, Math.floor(Math.log(n) / Math.log(1024)));
   return `${(n / 1024 ** i).toFixed(i ? 1 : 0)} ${units[i]}`;
 };
-const label = (outcome) => outcome.replace(/_/g, " ");
+const label = (outcome) => {
+  const words = outcome.replace(/_/g, " ");
+  return words.charAt(0).toUpperCase() + words.slice(1);
+};
+const runTitle = (runId, startedAt, live = false) =>
+  `Log · ${fmtTime(startedAt)}${live ? " (live)" : ""} · ${runId}.log`;
 
 function renderStatus(s) {
+  dateLocale = s.locale || undefined;
+  hour12 = s.clock === "12h";
   const running = s.state !== "idle";
   const current = s.current_run;
   const stateEl = $("state");
@@ -59,8 +79,11 @@ function renderStatus(s) {
   stateEl.className = `big state-${running ? s.state : (s.last_run?.outcome || "idle")}`;
   $("current-folder").textContent = current?.current_folder || "–";
   $("elapsed").textContent = current ? fmtDuration((Date.now() - new Date(current.started_at)) / 1000) : "–";
-  $("last-run").textContent = s.last_run ? `${label(s.last_run.outcome)} · ${fmtTime(s.last_run.finished_at)}` : "–";
-  $("next-run").textContent = s.next_run_at ? fmtTime(s.next_run_at) : (s.schedule ? "computing…" : "schedule disabled");
+  // While idle the header already shows the last outcome; repeat it only during a run
+  $("last-run").textContent = !s.last_run ? "–"
+    : running ? `${fmtTime(s.last_run.finished_at, false)} · ${label(s.last_run.outcome)}`
+    : fmtTime(s.last_run.finished_at, false);
+  $("next-run").textContent = s.next_run_at ? fmtTime(s.next_run_at, false) : (s.schedule ? "computing…" : "schedule disabled");
   $("run").disabled = running;
   $("run-delete").disabled = running;
   $("stop").hidden = !running;
@@ -75,7 +98,7 @@ function renderStatus(s) {
   // The page-load fetch runs before status reveals TrueNAS is on; fetch now instead of in 60 s
   if (s.truenas_enabled && !truenasLoaded) loadTrueNAS();
 
-  if (current && liveRun !== current.id) follow(current.id);
+  if (current && liveRun !== current.id) follow(current.id, current.started_at);
   if (!current && liveRun) { liveRun = null; loadRuns(); }
 }
 
@@ -100,7 +123,12 @@ function renderRuns() {
 }
 
 async function loadRuns() {
-  try { runs = await api("/api/runs?limit=50"); renderRuns(); } catch (e) { toast(e.message, true); }
+  try {
+    runs = await api("/api/runs?limit=50");
+    renderRuns();
+    // On load, the most recent run's log is what people came to see
+    if (!selectedRun && !liveRun && runs.length) showRun(runs[0].id);
+  } catch (e) { toast(e.message, true); }
 }
 
 async function loadFolders() {
@@ -188,15 +216,15 @@ function closeStream() {
   if (stream) { stream.close(); stream = null; }
 }
 
-function follow(runId) {
+function follow(runId, startedAt) {
   closeStream();
   selectedRun = runId;
   liveRun = runId;
-  resetLog(runId, `Log · ${runId} (live)`);
+  resetLog(runId, runTitle(runId, startedAt, true));
   renderRuns();
   stream = new EventSource(`/api/runs/${runId}/log/stream`);
   stream.addEventListener("line", (e) => appendLine(e.data));
-  stream.addEventListener("end", () => { closeStream(); flushLines(); $("log-title").textContent = `Log · ${runId}`; loadRuns(); loadStatus(); });
+  stream.addEventListener("end", () => { closeStream(); flushLines(); $("log-title").textContent = runTitle(runId, startedAt); loadRuns(); loadStatus(); });
   stream.onerror = () => { /* the browser reconnects with Last-Event-ID on its own */ };
 }
 
@@ -204,7 +232,8 @@ async function showRun(runId) {
   closeStream();
   selectedRun = runId;
   renderRuns();
-  resetLog(runId, `Log · ${runId}`);
+  const run = runs.find((r) => r.id === runId);
+  resetLog(runId, runTitle(runId, run ? run.started_at : null));
   try {
     // Only the end of a finished log is shown; the full file is one click away
     const response = await fetch(`/api/runs/${runId}/log?tail=${LOG_TAIL_BYTES}`);

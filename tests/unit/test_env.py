@@ -21,12 +21,13 @@ def test_overrides_only_contain_set_values(monkeypatch: pytest.MonkeyPatch) -> N
     monkeypatch.setenv("SCHEDULED_RSYNC_TIMEOUT", "0")
     monkeypatch.setenv("HISTORY_KEEP_DAYS", "7")
     monkeypatch.setenv("UI_DARK_THEME", "false")
+    monkeypatch.setenv("UI_LOCALE", "es-ES")
 
     assert EnvSettings().config_overrides() == {
         "remote": {"host": "nas.tailnet.ts.net", "user": "backup"},
         "schedule": {"rsync_timeout": 0},
         "history": {"keep_days": 7},
-        "ui": {"dark_theme": False},
+        "ui": {"dark_theme": False, "locale": "es-ES"},
     }
 
 

@@ -18,7 +18,9 @@ main { padding: 16px 24px 48px; max-width: 1200px; margin: 0 auto; display: grid
 .big { font-size: 22px; font-weight: 600; margin: 0 0 8px; }
 .muted { color: var(--muted); font-weight: 400; }
 .small { font-size: 13px; }
+.normal { text-transform: none; letter-spacing: 0; font-weight: 400; }
 dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; margin: 0; }
+dd { white-space: nowrap; }
 dt { color: var(--muted); }
 dd { margin: 0; }
 .actions { display: flex; gap: 8px; flex-wrap: wrap; }

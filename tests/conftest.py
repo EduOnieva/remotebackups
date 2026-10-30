@@ -36,6 +36,8 @@ ENV_VARS = (
     "TRUENAS_POOL_ALIASES",
     "HISTORY_KEEP_DAYS",
     "UI_DARK_THEME",
+    "UI_LOCALE",
+    "UI_CLOCK",
 )
 
 

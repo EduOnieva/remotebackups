@@ -75,6 +75,8 @@ class EnvSettings(BaseSettings):
     truenas_pool_aliases: str | None = None
     history_keep_days: int | None = None
     ui_dark_theme: bool | None = None
+    ui_locale: str | None = None
+    ui_clock: str | None = None
 
     @classmethod
     def settings_customise_sources(
@@ -138,7 +140,11 @@ class EnvSettings(BaseSettings):
                 ),
             },
             "history": {"keep_days": self.history_keep_days},
-            "ui": {"dark_theme": self.ui_dark_theme},
+            "ui": {
+                "dark_theme": self.ui_dark_theme,
+                "locale": self.ui_locale,
+                "clock": self.ui_clock,
+            },
         }
         return {
             section: {key: value for key, value in values.items() if value is not None}

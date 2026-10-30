@@ -26,6 +26,8 @@ async def test_status_when_idle_with_no_history(client: AsyncClient, harness: Ha
     }
     assert body["truenas_enabled"] is False
     assert body["dark_theme"] is True
+    assert body["locale"] is None
+    assert body["clock"] == "24h"
     assert body["version"] == "2.0.0-test"
 
 

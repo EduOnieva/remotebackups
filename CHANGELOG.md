@@ -14,6 +14,7 @@ the bash sync script, busybox cron and the stdlib web server.
 - The private key is mounted read-only at `/run/secrets/ssh_key` (or `SSH_KEY`), never copied into `/config`.
 - Host keys pinned on first use (`SSH_HOST_KEY_POLICY=tofu`), optional password authentication (`SSH_PASSWORD`), `FILE__<VAR>` secrets.
 - Remote reachability probe every five minutes, shown in the UI.
+- UI date format follows `ui.locale` and `ui.clock` (24h by default); the latest run's log opens on page load.
 - A Tailscale sidecar compose file with a health-checked dependency, and a plain compose file for direct destinations.
 - Multi-arch images (amd64, arm64) on Docker Hub and GHCR, built by GitHub Actions; integration tests against a real sshd.
 

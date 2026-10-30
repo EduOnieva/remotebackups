@@ -49,6 +49,8 @@ truenas:
 
 ui:
   dark_theme: true            # UI_DARK_THEME
+  # locale: es-ES             # UI_LOCALE: date format in the UI; default is the browser's locale
+  clock: 24h                  # UI_CLOCK: 24h | 12h
 
 history:
   keep_days: 40               # HISTORY_KEEP_DAYS: runs older than this are deleted

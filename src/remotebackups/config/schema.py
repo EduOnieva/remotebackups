@@ -177,6 +177,14 @@ class TrueNASConfig(StrictModel):
 
 class UIConfig(StrictModel):
     dark_theme: bool = True
+    # BCP 47 tag such as "es-ES" for dates in the UI; None uses the browser's own locale
+    locale: str | None = None
+    clock: Literal["24h", "12h"] = "24h"
+
+    @field_validator("locale", mode="before")
+    @classmethod
+    def empty_means_browser_default(cls, value: Any) -> Any:
+        return None if isinstance(value, str) and not value.strip() else value
 
 
 class HistoryConfig(StrictModel):

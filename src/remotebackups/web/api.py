@@ -57,6 +57,8 @@ async def status(request: Request) -> StatusResponse:
         ),
         truenas_enabled=svc.truenas.enabled,
         dark_theme=config.ui.dark_theme,
+        locale=config.ui.locale,
+        clock=config.ui.clock,
         version=svc.version,
         started_at=svc.started_at,
     )

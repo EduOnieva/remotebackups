@@ -130,7 +130,16 @@ class TestConfig:
         parsed = Config()
         assert parsed.folders == []
         assert parsed.ui.dark_theme is True
+        assert parsed.ui.locale is None
+        assert parsed.ui.clock == "24h"
         assert parsed.history.keep_days == 40
+
+    def test_ui_locale_and_clock(self) -> None:
+        parsed = Config(ui={"locale": "es-ES", "clock": "12h"})
+        assert (parsed.ui.locale, parsed.ui.clock) == ("es-ES", "12h")
+        assert Config(ui={"locale": ""}).ui.locale is None
+        with pytest.raises(ValidationError, match="clock"):
+            Config(ui={"clock": "24"})
 
     def test_folders_require_remote_host_and_user(self) -> None:
         with pytest.raises(ValidationError, match=r"remote\.host and remote\.user are required"):
