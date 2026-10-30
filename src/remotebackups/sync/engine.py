@@ -90,6 +90,7 @@ class SyncEngine:
             id=self._history.new_run_id(),
             trigger=trigger,
             delete=options.delete,
+            dry_run=options.dry_run,
             started_at=self._clock.now(),
             folders=[
                 FolderResult(name=f.name, source=f.source, destination=f.destination)
@@ -138,7 +139,7 @@ class SyncEngine:
             log.event(
                 "INFO",
                 f"Run {record.id} started: trigger={record.trigger.value} "
-                f"delete={options.delete} folders={len(folders)}",
+                f"delete={options.delete} dry_run={options.dry_run} folders={len(folders)}",
             )
             lock = self._acquire_lock(self._paths.runs_dir / ".lock")
             if lock is None:

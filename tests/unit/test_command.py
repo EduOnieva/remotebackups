@@ -46,6 +46,13 @@ def test_delete_is_added_only_when_asked_and_allowed() -> None:
     assert "--delete" not in build(RunOptions(delete=True), excludes=[], folder=guarded)
 
 
+def test_dry_run_is_added_only_when_asked() -> None:
+    assert "--dry-run" not in build(excludes=[])
+    argv = build(RunOptions(dry_run=True, delete=True), excludes=[])
+    assert "--dry-run" in argv
+    assert "--delete" in argv, "a dry run previews exactly what the real run would do"
+
+
 def test_timeout_is_added_only_for_a_positive_value() -> None:
     assert "--timeout=3600" in build(RunOptions(rsync_timeout=3600), excludes=[])
     assert not any(

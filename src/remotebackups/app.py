@@ -4,6 +4,7 @@ import asyncio
 import contextlib
 import logging
 import signal
+import socket
 from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import datetime
@@ -26,6 +27,10 @@ logger = logging.getLogger(__name__)
 PROBE_INTERVAL_SECONDS = 300.0
 # Open SSE streams would otherwise hold the server up for uvicorn's default graceful period
 WEB_SHUTDOWN_TIMEOUT_SECONDS = 3
+
+
+class WebStartError(Exception):
+    """The web UI could not start listening; the message says why."""
 
 
 @dataclass(frozen=True)
@@ -107,7 +112,11 @@ class Application:
         self.truenas = TrueNASService(self.load_config, self.clock)
         self.scheduler.start()
         self._probe_task = asyncio.create_task(self._probe_loop(), name="remote-probe")
-        await self._start_web()
+        try:
+            await self._start_web()
+        except WebStartError:
+            await self._shutdown_sequence()
+            raise
 
         loop = asyncio.get_running_loop()
         for sig in (signal.SIGTERM, signal.SIGINT):
@@ -136,6 +145,10 @@ class Application:
                 ok, message = result.ok, result.message
             except (ConfigError, SshSetupError) as exc:
                 ok, message = False, str(exc)
+            except Exception as exc:
+                # A bug here would otherwise end the periodic loop and leave a stale status
+                logger.exception("Remote probe crashed")
+                ok, message = False, f"internal error: {exc}"
             return self._record_probe(ok, message)
 
     def _record_probe(self, ok: bool, message: str) -> RemoteStatus:
@@ -166,22 +179,33 @@ class Application:
         )
 
     async def _start_web(self) -> None:
+        # Binding here rather than in uvicorn: uvicorn answers a busy port with sys.exit()
+        # from inside its task, which surfaces as tracebacks instead of a sentence
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            sock.bind(("0.0.0.0", self.env.web_port))
+        except OSError as exc:
+            sock.close()
+            raise WebStartError(
+                f"the web UI cannot listen on port {self.env.web_port} ({exc.strerror}); "
+                "is another service using it? WEB_PORT selects a different one"
+            ) from exc
         config = uvicorn.Config(
             create_app(self.services()),
-            host="0.0.0.0",
-            port=self.env.web_port,
             log_config=None,
             access_log=False,
             lifespan="off",
             timeout_graceful_shutdown=WEB_SHUTDOWN_TIMEOUT_SECONDS,
         )
         self._server = _QuietServer(config)
-        self._serve_task = asyncio.create_task(self._server.serve(), name="web")
+        self._serve_task = asyncio.create_task(self._server.serve(sockets=[sock]), name="web")
         while not self._server.started:
             if self._serve_task.done():
-                # uvicorn logs the bind error itself and exits; surface it instead of hanging
                 self._serve_task.result()
-                raise RuntimeError(f"web server did not start on port {self.env.web_port}")
+                raise WebStartError(
+                    f"the web server exited while starting on port {self.env.web_port}"
+                )
             await asyncio.sleep(0.01)
         logger.info("Web UI listening on port %d", self.web_port or self.env.web_port)
 

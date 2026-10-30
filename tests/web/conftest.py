@@ -67,6 +67,7 @@ class FakeEngine:
             id=self._history.new_run_id(),
             trigger=trigger,
             delete=options.delete,
+            dry_run=options.dry_run,
             started_at=self._clock.now(),
             folders=[
                 FolderResult(

@@ -1,6 +1,7 @@
 import asyncio
 import os
 import signal
+import socket
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -8,7 +9,7 @@ from pathlib import Path
 import pytest
 from httpx import AsyncClient
 
-from remotebackups.app import Application
+from remotebackups.app import Application, WebStartError
 from remotebackups.cli import main
 from remotebackups.config import ConfigError, EnvSettings
 from remotebackups.paths import ConfigPaths
@@ -151,3 +152,50 @@ async def test_crashed_run_is_closed_at_startup(
     assert app.history is not None
     record = app.history.get("20260101T000000Z-dead")
     assert record is not None and record.outcome is RunOutcome.ABORTED
+
+
+async def test_probe_crash_is_a_failed_check_not_a_dead_loop(
+    configured: Path, paths: ConfigPaths, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    app = Application(EnvSettings(), paths)
+    task = asyncio.create_task(app.run())
+    await wait_for(lambda: app.remote_status.ok is True)
+
+    def boom() -> None:
+        raise RuntimeError("boom")
+
+    with monkeypatch.context() as patched:
+        patched.setattr(app, "load_config", boom)
+        crashed = await app.probe_remote()
+    assert crashed.ok is False
+    assert crashed.message == "internal error: boom"
+
+    recovered = await app.probe_remote()
+    assert recovered.ok is True
+    app.request_shutdown("test")
+    assert await task == 0
+
+
+async def test_busy_web_port_is_one_sentence_and_a_clean_exit(
+    configured: Path,
+    paths: ConfigPaths,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    taken = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    taken.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    taken.bind(("0.0.0.0", 0))
+    taken.listen(1)
+    monkeypatch.setenv("WEB_PORT", str(taken.getsockname()[1]))
+    try:
+        app = Application(EnvSettings(), paths)
+        with pytest.raises(WebStartError, match="is another service using it"):
+            await app.run()
+        assert app.scheduler is not None and not alive(app.scheduler), "nothing left running"
+
+        assert await asyncio.to_thread(main, ["run"]) == 3
+    finally:
+        taken.close()
+    err = capsys.readouterr().err
+    assert "Cannot start: the web UI cannot listen on port" in err
+    assert "Traceback" not in err

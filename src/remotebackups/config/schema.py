@@ -22,8 +22,8 @@ DEFAULT_EXCLUDES = [
     "desktop.ini",
     ".venv",
 ]
-# Decided per run (manual delete, scheduled timeout), so they cannot be baked into the options
-RUN_LEVEL_OPTIONS = ("--delete", "--timeout")
+# Decided per run (manual delete, scheduled timeout, dry run); never part of the options
+RUN_LEVEL_OPTIONS = ("--delete", "--timeout", "--dry-run")
 MIB = 1024 * 1024
 
 

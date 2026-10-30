@@ -46,6 +46,8 @@ class RsyncCommandBuilder:
             argv += OWNERSHIP_OFF
         if options.delete and folder.allow_delete:
             argv.append("--delete")
+        if options.dry_run:
+            argv.append("--dry-run")
         if options.rsync_timeout:
             argv.append(f"--timeout={options.rsync_timeout}")
         argv += [f"--exclude={pattern}" for pattern in (*self._rsync.excludes, *folder.excludes)]

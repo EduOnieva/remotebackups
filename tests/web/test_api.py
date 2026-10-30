@@ -86,7 +86,15 @@ async def test_start_run_accepted_then_conflict(client: AsyncClient, harness: Ha
 async def test_start_run_without_body_uses_defaults(client: AsyncClient, harness: Harness) -> None:
     assert (await client.post("/api/runs")).status_code == 202
     assert harness.engine.starts[0].delete is False
+    assert harness.engine.starts[0].dry_run is False
     assert harness.engine.starts[0].folders is None
+
+
+async def test_dry_run_is_passed_on_and_shown(client: AsyncClient, harness: Harness) -> None:
+    assert (await client.post("/api/runs", json={"dry_run": True})).status_code == 202
+    assert harness.engine.starts[0].dry_run is True
+    status = (await client.get("/api/status")).json()
+    assert status["current_run"]["dry_run"] is True
 
 
 async def test_mutating_routes_refuse_what_a_cross_site_form_can_send(

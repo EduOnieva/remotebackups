@@ -64,7 +64,7 @@ class TestRsync:
         assert parsed.preserve_ownership is False
         assert "lost+found" in parsed.excludes
 
-    @pytest.mark.parametrize("option", ["--delete", "--delete-after", "--timeout=60"])
+    @pytest.mark.parametrize("option", ["--delete", "--delete-after", "--timeout=60", "--dry-run"])
     def test_run_level_options_are_rejected_in_base_options(self, option: str) -> None:
         with pytest.raises(ValidationError, match="decided per run"):
             RsyncConfig(options=["-a", option])

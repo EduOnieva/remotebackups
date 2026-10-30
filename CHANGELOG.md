@@ -1,5 +1,22 @@
 # Changelog
 
+## 2.1.0 - 2026-10-30
+
+### Added
+- Dry run: a checkbox in the UI, `dry_run` in `POST /api/runs` and `run-once --dry-run` pass `--dry-run` to rsync so Run and Run with delete can be previewed.
+- The selected run's folders under the log: status, duration, files, bytes and the reason for a failure.
+
+### Changed
+- Editing `schedule.cron` moves the next scheduled run within a minute; before, the change waited until the already-computed run had fired.
+- A run that starts while you are reading an older log no longer replaces what you are looking at; the page follows new runs only while it shows the latest one or a run started from it.
+- A web port already in use is reported in one sentence with exit code 3 instead of two tracebacks.
+
+### Fixed
+- The ssh config and key copy under `/run/remotebackups/ssh` are swapped in atomically; the periodic probe used to truncate and rewrite them while a run could be starting an ssh.
+- An unexpected error in the remote probe is reported as a failed check instead of silently ending the periodic loop.
+- A broken `config.yaml` was logged by the scheduler every minute; it is now logged once, with a line when it is readable again.
+- The per-run log cap compared characters with bytes.
+
 ## 2.0.0 - 2026-10-30
 
 A rewrite of rsync-tailscale-docker as **remotebackups**: one Python application replaces

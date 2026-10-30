@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import pytest
@@ -38,6 +39,13 @@ def test_run_once_exit_code_reflects_a_failed_folder(
     fake_bin.configure(rsync_mode="exit:23")
     assert main(["run-once", "--delete"]) == 1
     assert "docs: failed (rsync exit 23" in capsys.readouterr().out
+
+
+def test_run_once_dry_run(configured: Path, fake_bin: FakeBinaries, tmp_path: Path) -> None:
+    args_file = tmp_path / "rsync-args"
+    fake_bin.configure(rsync_args_file=str(args_file))
+    assert main(["run-once", "--dry-run"]) == 0
+    assert "--dry-run" in json.loads(args_file.read_text().splitlines()[0])
 
 
 def test_run_once_unknown_folder(configured: Path, capsys: pytest.CaptureFixture[str]) -> None:

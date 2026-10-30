@@ -12,6 +12,7 @@ class RunSummary(BaseModel):
     id: str
     trigger: RunTrigger
     delete: bool
+    dry_run: bool
     outcome: RunOutcome
     started_at: datetime
     finished_at: datetime | None
@@ -31,6 +32,7 @@ class RunSummary(BaseModel):
             id=record.id,
             trigger=record.trigger,
             delete=record.delete,
+            dry_run=record.dry_run,
             outcome=record.outcome,
             started_at=record.started_at,
             finished_at=record.finished_at,
@@ -96,6 +98,7 @@ class FolderInfo(BaseModel):
 
 class RunRequest(BaseModel):
     delete: bool = False
+    dry_run: bool = False
     folders: list[str] | None = Field(default=None, min_length=1)
 
 

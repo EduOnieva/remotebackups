@@ -15,7 +15,7 @@ from collections.abc import Sequence
 from pydantic import ValidationError
 
 from remotebackups import __version__
-from remotebackups.app import Application
+from remotebackups.app import Application, WebStartError
 from remotebackups.clock import SystemClock
 from remotebackups.config import Config, ConfigError, EnvSettings, dump_config, load_config
 from remotebackups.config.loader import EXAMPLE_TEXT, ensure_config_files, format_validation_errors
@@ -32,6 +32,7 @@ from remotebackups.sync import (
 
 EXIT_RUN_NOT_CLEAN = 1
 EXIT_CONFIG_ERROR = 2
+EXIT_START_ERROR = 3
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -51,6 +52,9 @@ def build_parser() -> argparse.ArgumentParser:
     commands.add_parser("healthcheck", help="exit 0 when the local web server reports healthy")
     once = commands.add_parser("run-once", help="run one backup now in the foreground and exit")
     once.add_argument("--delete", action="store_true", help="pass --delete to rsync")
+    once.add_argument(
+        "--dry-run", action="store_true", help="pass --dry-run to rsync: report, transfer nothing"
+    )
     once.add_argument(
         "--folder", action="append", dest="folders", metavar="NAME", help="only this folder"
     )
@@ -101,9 +105,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             return asyncio.run(Application(env, paths).run())
         except ConfigError as exc:
             return _report(exc)
-    return asyncio.run(
-        _run_once(paths, env, config, RunOptions(delete=args.delete, folders=args.folders))
-    )
+        except WebStartError as exc:
+            print(f"Cannot start: {exc}", file=sys.stderr)
+            return EXIT_START_ERROR
+    options = RunOptions(delete=args.delete, dry_run=args.dry_run, folders=args.folders)
+    return asyncio.run(_run_once(paths, env, config, options))
 
 
 async def _run_once(

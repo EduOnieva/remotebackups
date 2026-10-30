@@ -1,6 +1,7 @@
 """The JSON API under /api."""
 
 import re
+from pathlib import Path
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
@@ -129,7 +130,8 @@ async def start_run(request: Request, body: RunRequest | None = None) -> RunAcce
     body = body or RunRequest()
     try:
         record = await svc.engine.start(
-            RunTrigger.MANUAL, RunOptions(delete=body.delete, folders=body.folders)
+            RunTrigger.MANUAL,
+            RunOptions(delete=body.delete, dry_run=body.dry_run, folders=body.folders),
         )
     except RunAlreadyActiveError as exc:
         raise HTTPException(409, f"run {exc.run_id} is already active") from exc
@@ -269,8 +271,6 @@ def _last_finished(svc: Services) -> RunSummary | None:
 
 
 def _exists(path: str) -> bool:
-    from pathlib import Path
-
     return Path(path).is_dir()
 
 

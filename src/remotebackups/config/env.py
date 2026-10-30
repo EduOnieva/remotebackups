@@ -4,6 +4,7 @@ Precedence inside the environment: `FILE__<VAR>` (a path whose contents become t
 value, the linuxserver convention for Docker secrets) beats a plain `<VAR>`.
 """
 
+import os
 import shlex
 from pathlib import Path
 from typing import Any
@@ -23,8 +24,6 @@ class FileEnvSource(PydanticBaseSettingsSource):
     """Reads `FILE__<FIELD>` variables and substitutes the named file's contents."""
 
     def get_field_value(self, field: FieldInfo, field_name: str) -> tuple[Any, str, bool]:
-        import os
-
         path = os.environ.get(FILE_PREFIX + field_name.upper())
         if path is None:
             return None, field_name, False

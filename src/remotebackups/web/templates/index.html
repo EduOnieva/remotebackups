@@ -11,6 +11,9 @@
   <header>
     <h1>remotebackups <span class="muted">v{{ version }}</span></h1>
     <div class="actions">
+      <label class="check" title="rsync --dry-run: report what Run or Run with delete would do, transfer and delete nothing">
+        <input type="checkbox" id="dry-run"> Dry run
+      </label>
       <button id="run" class="primary">Run</button>
       <button id="run-delete" class="warn">Run with delete</button>
       <button id="stop" class="danger" hidden>Stop</button>
@@ -61,6 +64,12 @@
       <div class="log-wrap">
         <pre id="log" class="log">Select a run below or start one.</pre>
         <button id="jump" class="pill" hidden>Jump to bottom</button>
+      </div>
+      <div class="table-wrap" id="run-folders-wrap" hidden>
+        <table id="run-folders">
+          <thead><tr><th>Folder</th><th>Status</th><th>Duration</th><th class="wide-only">Files</th><th class="wide-only">Sent</th><th>Note</th></tr></thead>
+          <tbody></tbody>
+        </table>
       </div>
     </section>
 

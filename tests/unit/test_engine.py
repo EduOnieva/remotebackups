@@ -90,6 +90,19 @@ async def test_scheduled_run_passes_delete_and_timeout(
     assert "--timeout=3600" in argv
 
 
+async def test_dry_run_is_passed_to_rsync_and_recorded(
+    engine: SyncEngine, fake_bin: FakeBinaries, tmp_path: Path
+) -> None:
+    args_file = tmp_path / "rsync-args"
+    fake_bin.configure(rsync_args_file=str(args_file))
+
+    await engine.start(RunTrigger.MANUAL, RunOptions(dry_run=True, folders=["docs"]))
+    record = await engine.wait()
+
+    assert record is not None and record.dry_run
+    assert "--dry-run" in json.loads(args_file.read_text().splitlines()[0])
+
+
 async def test_partial_failure_is_completed_with_errors(
     engine: SyncEngine, history: RunHistory, fake_bin: FakeBinaries
 ) -> None:

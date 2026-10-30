@@ -22,6 +22,10 @@ let tailOnly = false;
 // lines keep the view pinned there, scrolled up they count into the "jump to bottom" pill
 let following = true;
 let unseenLines = 0;
+// A run you clicked stays on screen when another run starts; the page follows a new run only
+// while it shows the latest one or a run started from here
+let pinned = false;
+let knownCurrent = null;
 
 async function api(path, options = {}) {
   const response = await fetch(path, { headers: { "Content-Type": "application/json" }, ...options });
@@ -93,6 +97,7 @@ const label = (outcome) => {
   const words = outcome.replace(/_/g, " ");
   return words.charAt(0).toUpperCase() + words.slice(1);
 };
+const runKind = (r, sep) => `${r.trigger}${r.delete ? `${sep}with delete` : ""}${r.dry_run ? `${sep}dry run` : ""}`;
 // The file name in the title is the download link: a hint that the full log is one click away
 function setLogTitle(runId, startedAt, live = false) {
   const title = $("log-title");
@@ -130,8 +135,13 @@ function renderStatus(s) {
   // The page-load fetch runs before status reveals TrueNAS is on; fetch now instead of in 60 s
   if (s.truenas_enabled && !truenasLoaded) loadTrueNAS();
 
-  if (current && liveRun !== current.id) follow(current.id, current.started_at);
-  if (!current && liveRun) { liveRun = null; loadRuns(); }
+  if (current && liveRun !== current.id) {
+    if (!pinned) follow(current.id, current.started_at);
+    else if (knownCurrent !== current.id) toast(`Run ${current.id} started · select it in Runs to follow`);
+  }
+  if (current && liveRun === current.id) loadRunDetail(current.id);
+  if (current && knownCurrent !== current.id) { knownCurrent = current.id; loadRuns(); }
+  if (!current && knownCurrent) { knownCurrent = null; liveRun = null; loadRuns(); }
 }
 
 function renderProgress(current) {
@@ -139,7 +149,7 @@ function renderProgress(current) {
   for (const id of ["row-trigger", "row-progress", "row-elapsed", "progress-bar"]) $(id).hidden = !current;
   if (!current) return;
   const done = current.folders_ok + current.folders_failed;
-  $("trigger").textContent = `${current.trigger}${current.delete ? ", with delete" : ""}`;
+  $("trigger").textContent = runKind(current, ", ");
   $("progress").textContent = `${done} of ${current.folders_total} folders${current.current_folder ? ` · ${current.current_folder}` : ""}`;
   $("elapsed").textContent = fmtDuration((Date.now() - new Date(current.started_at)) / 1000);
   const bar = $("progress-bar");
@@ -224,16 +234,46 @@ function renderRuns() {
     }
     tr.append(
       cell(fmtTime(r.started_at)),
-      cell(`${r.trigger}${r.delete ? " + delete" : ""}`),
+      cell(runKind(r, " + ")),
       cell(label(r.outcome), `state-${r.outcome}`),
       cell(fmtDuration(r.duration_s)),
       folders,
       cell(r.files_transferred, "wide-only"),
       cell(fmtBytes(r.bytes_sent), "wide-only"),
     );
-    tr.onclick = () => showRun(r.id);
+    tr.onclick = () => { pinned = true; showRun(r.id); };
     body.appendChild(tr);
   }
+}
+
+const FOLDER_STATUS_CLASS = { ok: "ok", failed: "bad", running: "state-running", cancelled: "warn-text" };
+
+// What happened to each folder of the selected run: the numbers the log buries in rsync output
+function renderRunFolders(detail) {
+  const wrap = $("run-folders-wrap");
+  const body = $("run-folders").querySelector("tbody");
+  body.innerHTML = "";
+  for (const f of detail.folders) {
+    const tr = document.createElement("tr");
+    tr.append(
+      cell(f.name),
+      cell(f.status, FOLDER_STATUS_CLASS[f.status] || "muted"),
+      cell(fmtDuration(f.duration_s)),
+      cell(f.stats ? f.stats.files_transferred : "–", "wide-only"),
+      cell(f.stats ? fmtBytes(f.stats.bytes_sent) : "–", "wide-only"),
+      cell(f.message || "", "note"),
+    );
+    body.appendChild(tr);
+  }
+  wrap.hidden = !detail.folders.length;
+}
+
+async function loadRunDetail(runId) {
+  try {
+    const detail = await api(`/api/runs/${runId}`);
+    // The selection may have moved while the request was in flight
+    if (runId === selectedRun) renderRunFolders(detail);
+  } catch (e) { toast(e.message, true); }
 }
 
 async function loadRuns() {
@@ -395,6 +435,7 @@ function resetLog(runId, startedAt, live = false) {
   following = true;
   unseenLines = 0;
   $("log").textContent = "";
+  $("run-folders-wrap").hidden = true;
   updateJump();
   setLogTitle(runId, startedAt, live);
   updateLogNotice();
@@ -417,20 +458,25 @@ function follow(runId, startedAt) {
   closeStream();
   selectedRun = runId;
   liveRun = runId;
+  pinned = false;
   resetLog(runId, startedAt, true);
   renderRuns();
+  loadRunDetail(runId);
   stream = new EventSource(`/api/runs/${runId}/log/stream`);
   stream.addEventListener("line", (e) => appendLine(e.data));
-  stream.addEventListener("end", () => { closeStream(); flushLines(); setLogTitle(runId, startedAt); loadRuns(); loadStatus(); });
+  stream.addEventListener("end", () => { closeStream(); flushLines(); setLogTitle(runId, startedAt); loadRunDetail(runId); loadRuns(); loadStatus(); });
   stream.onerror = () => { /* the browser reconnects with Last-Event-ID on its own */ };
 }
 
 async function showRun(runId) {
+  const run = runs.find((r) => r.id === runId);
+  // Selecting the run in progress means following it live, not reading a snapshot
+  if (run && run.outcome === "running") { follow(runId, run.started_at); return; }
   closeStream();
   selectedRun = runId;
   renderRuns();
-  const run = runs.find((r) => r.id === runId);
   resetLog(runId, run ? run.started_at : null);
+  loadRunDetail(runId);
   try {
     // Only the end of a finished log is shown; the full file is one click away
     const response = await fetch(`/api/runs/${runId}/log?tail=${LOG_TAIL_BYTES}`);
@@ -443,10 +489,12 @@ async function showRun(runId) {
 }
 
 async function startRun(withDelete) {
-  if (withDelete && !confirm("Run with --delete? Files removed locally will be deleted from the backup.")) return;
+  const dryRun = $("dry-run").checked;
+  if (withDelete && !dryRun && !confirm("Run with --delete? Files removed locally will be deleted from the backup.")) return;
   try {
-    const result = await api("/api/runs", { method: "POST", body: JSON.stringify({ delete: withDelete }) });
-    toast(`Run ${result.run_id} started`);
+    const result = await api("/api/runs", { method: "POST", body: JSON.stringify({ delete: withDelete, dry_run: dryRun }) });
+    toast(`${dryRun ? "Dry run" : "Run"} ${result.run_id} started`);
+    pinned = false;
     await loadStatus();
   } catch (e) { toast(e.message, true); }
 }

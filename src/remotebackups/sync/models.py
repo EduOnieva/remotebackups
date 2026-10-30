@@ -43,6 +43,8 @@ class RunOptions(BaseModel):
     """What a caller chooses when starting a run."""
 
     delete: bool = False
+    # rsync --dry-run: report what would change, transfer and delete nothing
+    dry_run: bool = False
     # rsync --timeout; None means none (manual runs), scheduled runs pass the configured value
     rsync_timeout: int | None = None
     # Restrict the run to these folder names; None means every enabled folder
@@ -86,6 +88,7 @@ class RunRecord(BaseModel):
     id: str
     trigger: RunTrigger
     delete: bool
+    dry_run: bool = False
     started_at: datetime
     finished_at: datetime | None = None
     outcome: RunOutcome = RunOutcome.RUNNING

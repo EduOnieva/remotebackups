@@ -22,7 +22,7 @@ schedule:
                               # scheduled run gives up on a folder. 0 disables. Manual runs never time out
 
 rsync:
-  options: ["-a", "-v", "-z", "--partial", "--stats"]   # base flags; --delete and --timeout are decided per run
+  options: ["-a", "-v", "-z", "--partial", "--stats"]   # base flags; --delete, --timeout and --dry-run are decided per run
   preserve_ownership: false   # true keeps owner and group; needs a root remote user (TrueNAS users are not)
   extra_options: []           # appended to every folder, e.g. ["--bwlimit=20m"] (RSYNC_EXTRA_OPTIONS)
   excludes: ["*.Trash*", "lost+found", "System Volume Information", ".DS_Store", "Thumbs.db", "desktop.ini", ".venv"]
