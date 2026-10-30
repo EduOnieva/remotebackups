@@ -242,3 +242,4 @@ async def test_index_page_carries_the_theme(client: AsyncClient, harness: Harnes
 async def test_static_assets_are_served(client: AsyncClient) -> None:
     assert (await client.get("/static/app.js")).status_code == 200
     assert (await client.get("/static/app.css")).status_code == 200
+    assert (await client.get("/static/favicon.svg")).status_code == 200

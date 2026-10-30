@@ -50,6 +50,15 @@ function fmtTime(iso, withSeconds = true) {
     return new Intl.DateTimeFormat(undefined, options).format(new Date(iso));
   }
 }
+function fmtDate(iso) {
+  if (!iso) return "–";
+  const options = { year: "numeric", month: "2-digit", day: "2-digit" };
+  try {
+    return new Intl.DateTimeFormat(dateLocale, options).format(new Date(iso));
+  } catch {
+    return new Intl.DateTimeFormat(undefined, options).format(new Date(iso));
+  }
+}
 const fmtDuration = (s) => {
   if (s == null) return "–";
   const total = Math.round(s);
@@ -174,7 +183,7 @@ function renderPool(pool) {
   let text = `${pool.used_pct}% used · ${fmtBytes(pool.free)} free of ${fmtBytes(pool.size)}`;
   if (pool.scrub_ended_at) {
     const errors = pool.scrub_errors ? `${pool.scrub_errors} errors` : "no errors";
-    text += ` · last scrub ${fmtTime(pool.scrub_ended_at, false)}, ${errors}`;
+    text += ` · last scrub ${fmtDate(pool.scrub_ended_at)}, ${errors}`;
   }
   detail.textContent = text;
   div.append(head, bar, detail);
@@ -199,14 +208,11 @@ async function loadTrueNAS() {
   truenasLoaded = true;
   try {
     const data = await api("/api/truenas");
-    const pools = $("truenas-pools"), alerts = $("truenas-alerts"), footer = $("truenas-footer");
+    const pools = $("truenas-pools"), alerts = $("truenas-alerts"), error = $("truenas-error");
     pools.innerHTML = ""; alerts.innerHTML = "";
-    if (data.error) {
-      footer.textContent = data.error;
-      footer.className = "bad small";
-      return;
-    }
-    footer.className = "muted small";
+    error.textContent = data.error || "";
+    error.hidden = !data.error;
+    if (data.error) return;
     data.pools.forEach((pool) => pools.appendChild(renderPool(pool)));
     const active = data.alerts.filter((a) => !a.dismissed);
     if (!active.length) {
@@ -223,7 +229,7 @@ async function loadTrueNAS() {
         alerts.appendChild(more);
       }
     }
-    footer.textContent = data.fetched_at ? `as of ${fmtTime(data.fetched_at)}` : "";
+    $("truenas-asof").textContent = data.fetched_at ? `as of ${fmtTime(data.fetched_at)}` : "";
   } catch (e) { toast(e.message, true); }
 }
 
@@ -333,7 +339,17 @@ async function clearHistory() {
 $("run").onclick = () => startRun(false);
 $("run-delete").onclick = () => startRun(true);
 $("stop").onclick = stopRun;
-$("clear").onclick = clearHistory;
+// The button sits inside a <summary>; without preventDefault the click would also fold the card
+$("clear").onclick = (e) => { e.preventDefault(); clearHistory(); };
+
+// Which cards are folded is a per-browser preference, so it lives in localStorage (best effort)
+for (const card of document.querySelectorAll("details.card")) {
+  const key = `remotebackups.collapsed.${card.id}`;
+  try { if (localStorage.getItem(key) === "1") card.open = false; } catch { /* storage unavailable */ }
+  card.addEventListener("toggle", () => {
+    try { localStorage.setItem(key, card.open ? "0" : "1"); } catch { /* storage unavailable */ }
+  });
+}
 
 loadStatus(); loadRuns(); loadFolders(); loadTrueNAS();
 statusTimer = setInterval(loadStatus, STATUS_INTERVAL_MS);

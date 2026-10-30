@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>remotebackups</title>
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
   <link rel="stylesheet" href="/static/app.css">
 </head>
 <body>
@@ -38,10 +39,13 @@
         <p class="muted small" id="remote-message"></p>
       </article>
       <article class="card" id="truenas-card" hidden>
-        <h2>TrueNAS</h2>
+        <div class="card-head">
+          <h2>TrueNAS</h2>
+          <span class="muted small" id="truenas-asof"></span>
+        </div>
         <div id="truenas-pools"></div>
         <div id="truenas-alerts"></div>
-        <p class="muted small" id="truenas-footer"></p>
+        <p class="bad small" id="truenas-error" hidden></p>
       </article>
     </section>
 
@@ -54,26 +58,26 @@
       <pre id="log" class="log">Select a run below or start one.</pre>
     </section>
 
-    <section class="card">
-      <div class="card-head">
-        <h2>Runs <span class="muted small normal">click a run to see its log</span></h2>
+    <details class="card" id="runs-card" open>
+      <summary class="card-head">
+        <h2>Runs</h2>
         <button id="clear" class="ghost small">Clear history</button>
-      </div>
+      </summary>
       <table id="runs">
         <thead>
           <tr><th>Started</th><th>Trigger</th><th>Outcome</th><th>Duration</th><th>Folders</th><th>Files</th><th>Sent</th></tr>
         </thead>
         <tbody></tbody>
       </table>
-    </section>
+    </details>
 
-    <section class="card">
-      <h2>Folders</h2>
+    <details class="card" id="folders-card" open>
+      <summary class="card-head"><h2>Folders</h2></summary>
       <table id="folders">
         <thead><tr><th>Name</th><th>Source</th><th>Destination</th><th>Notes</th></tr></thead>
         <tbody></tbody>
       </table>
-    </section>
+    </details>
   </main>
 
   <div id="toast" hidden></div>
