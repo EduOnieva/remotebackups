@@ -381,7 +381,7 @@ function updateLogNotice() {
   // line cap of the panel; the title's file name is the link to the whole log
   const truncated = tailOnly || hiddenLines > 0;
   const visible = $("log").childElementCount;
-  $("log-notice").textContent = truncated ? `Showing the last ${visible} lines · the full log has more` : "";
+  $("log-notice").textContent = truncated ? `Showing the last ${visible} lines · download the full log for more` : "";
   $("log-notice").hidden = !truncated;
 }
 
