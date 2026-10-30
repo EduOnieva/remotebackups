@@ -10,6 +10,7 @@ the changelog.
 - Document `FILE__TRUENAS_API_KEY` with a secret file as the recommended way to pass the
   TrueNAS key, since a plain environment variable is readable through `docker inspect`.
 - Complete the GitHub wiki.
+- Review the vulnerability information Docker Hub shows for the image and act on what is real.
 
 ## Ideas
 
