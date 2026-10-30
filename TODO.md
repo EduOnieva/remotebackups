@@ -5,6 +5,8 @@ the changelog.
 
 ## Next
 
+- The fold triangle of the Runs and Folders cards sits higher than the title when the card
+  is open: the rotated glyph is not vertically centred on the text.
 - Keep the "Jump to bottom" pill from covering the last log lines, for example with some
   bottom padding on the log while the pill is visible.
 - Document `FILE__TRUENAS_API_KEY` with a secret file as the recommended way to pass the
