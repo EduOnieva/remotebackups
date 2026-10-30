@@ -4,11 +4,12 @@
 
 ### Added
 - Dry run: a button in the UI, `dry_run` in `POST /api/runs` and `run-once --dry-run` pass `--dry-run` to rsync so a run can be previewed; the API accepts it together with `delete`.
-- The selected run's folders under the log, folded under **Folders Details**: status, duration, files, bytes and the reason for a failure.
+- The selected run's folders under the log, folded under **Folders Details**, closed on every load: status, duration, files, bytes and the reason for a failure.
 - A **Run** button per folder backs up that folder alone; the Runs table names the folder of a one-folder run.
 - A **Pause** button per folder pauses it from the UI (`PUT /api/folders/{name}`); runs skip paused folders until the container restarts, which forgets every pause. `check-config` and `print-config` mention paused folders; `enabled: false` in `config.yaml` remains the permanent switch.
 
 ### Changed
+- The TrueNAS card shows nothing where it used to say "No alerts"; only alerts earn a line.
 - Editing `schedule.cron` moves the next scheduled run within a minute; before, the change waited until the already-computed run had fired.
 - A run that starts while you are reading an older log no longer replaces what you are looking at; the page follows new runs only while it shows the latest one or a run started from it.
 - A web port already in use is reported in one sentence with exit code 3 instead of two tracebacks.
@@ -18,6 +19,7 @@
 - An unexpected error in the remote probe is reported as a failed check instead of silently ending the periodic loop.
 - A broken `config.yaml` was logged by the scheduler every minute; it is now logged once, with a line when it is readable again.
 - The per-run log cap compared characters with bytes.
+- An error page from a reverse proxy in front of the UI was shown as raw HTML in the toast; non-JSON errors now show their status instead.
 
 ## 2.0.0 - 2026-10-30
 

@@ -76,7 +76,8 @@ table { width: 100%; border-collapse: collapse; font-size: 14px; }
 th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--border); white-space: nowrap; }
 td.path { white-space: normal; word-break: break-all; color: var(--muted); }
 td.chips .badge + .badge { margin-left: 6px; }
-td.row-actions { text-align: right; width: 1%; padding-top: 4px; padding-bottom: 4px; }
+th.row-actions, td.row-actions { text-align: center; width: 1%; white-space: nowrap; }
+td.row-actions { padding-top: 4px; padding-bottom: 4px; }
 td.row-actions button + button { margin-left: 6px; }
 #folders-notice { margin: 0 0 10px; }
 tbody tr { cursor: pointer; }

@@ -32,8 +32,13 @@ let isRunning = false;
 async function api(path, options = {}) {
   const response = await fetch(path, { headers: { "Content-Type": "application/json" }, ...options });
   if (response.status === 204) return null;
-  const body = response.headers.get("content-type")?.includes("json") ? await response.json() : await response.text();
-  if (!response.ok) throw new Error(body?.detail || body || response.statusText);
+  const json = response.headers.get("content-type")?.includes("json");
+  const body = json ? await response.json() : await response.text();
+  if (!response.ok) {
+    // A proxy in front answers a stopped container with its own HTML page; only the app's
+    // JSON errors carry a message worth showing
+    throw new Error(json && body?.detail ? body.detail : `${response.status} ${response.statusText}`);
+  }
   return body;
 }
 
@@ -416,20 +421,14 @@ async function loadTrueNAS() {
     error.hidden = !data.error;
     if (data.error) return;
     data.pools.forEach((pool) => pools.appendChild(renderPool(pool)));
+    // No alerts is the normal state and says nothing; only alerts earn a line
     const active = data.alerts.filter((a) => !a.dismissed);
-    if (!active.length) {
-      const none = document.createElement("div");
-      none.className = "muted small";
-      none.textContent = "No alerts";
-      alerts.appendChild(none);
-    } else {
-      active.slice(0, MAX_ALERTS_SHOWN).forEach((alert) => alerts.appendChild(renderAlert(alert)));
-      if (active.length > MAX_ALERTS_SHOWN) {
-        const more = document.createElement("div");
-        more.className = "muted small";
-        more.textContent = `and ${active.length - MAX_ALERTS_SHOWN} more`;
-        alerts.appendChild(more);
-      }
+    active.slice(0, MAX_ALERTS_SHOWN).forEach((alert) => alerts.appendChild(renderAlert(alert)));
+    if (active.length > MAX_ALERTS_SHOWN) {
+      const more = document.createElement("div");
+      more.className = "muted small";
+      more.textContent = `and ${active.length - MAX_ALERTS_SHOWN} more`;
+      alerts.appendChild(more);
     }
     $("truenas-asof").textContent = data.fetched_at ? `as of ${fmtTime(data.fetched_at)}` : "";
   } catch (e) { toast(e.message, true); }
@@ -577,8 +576,9 @@ $("jump").onclick = () => { $("log").scrollTop = $("log").scrollHeight; };
 // The button sits inside a <summary>; without preventDefault the click would also fold the card
 $("clear").onclick = (e) => { e.preventDefault(); clearHistory(); };
 
-// Cards and folds start closed; which ones you open is a per-browser preference kept in localStorage
-for (const card of document.querySelectorAll("details.card, details.fold")) {
+// Cards start folded; which ones you unfold is a per-browser preference kept in localStorage.
+// The Folders Details fold under the log is not remembered: it starts closed on every load
+for (const card of document.querySelectorAll("details.card")) {
   const key = `remotebackups.open.${card.id}`;
   try { card.open = localStorage.getItem(key) === "1"; } catch { /* storage unavailable */ }
   card.addEventListener("toggle", () => {
