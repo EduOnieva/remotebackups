@@ -17,8 +17,8 @@ through Tailscale, or a machine on your LAN.
   login is probed every five minutes so you see a sleeping NAS before a run fails.
 - **Safe defaults.** Key authentication, host keys pinned on first use, rsync and ssh never
   see the application's secrets, and `--delete` is never part of a scheduled run.
-- **TrueNAS SCALE aware.** Optional alert count and free space per pool from the TrueNAS API,
-  in the same `/api/pool_status` shape as before.
+- **TrueNAS SCALE aware.** Optional card with each pool's usage, health and last scrub plus the
+  current alerts, from the TrueNAS API; `/api/pool_status` keeps the v1 shape for dashboards.
 
 ## Quick start
 
@@ -176,9 +176,12 @@ rsync -a -v -z --partial --stats --no-owner --no-group [--delete] [--timeout=N] 
 
 ## The web UI and API
 
-The page shows the current state, the last and next run, whether the destination is
-reachable, the TrueNAS card when enabled, the live log of the running backup, the history of
-runs and the configured folders. Buttons: **Run**, **Run with delete**, **Stop**, **Clear history**.
+The page shows the current state with progress during a run, the last and next run, whether
+the destination is reachable (with a **Check now** button), the TrueNAS card when enabled, the
+log of the selected run, and the history of runs and the configured folders in two cards that
+fold. The log follows new lines while you are at the bottom and offers a "jump to bottom"
+pill when you scroll up; the file name in its title downloads the whole file. Buttons:
+**Run**, **Run with delete**, **Stop**, **Clear history**. The layout works on a phone.
 
 | Endpoint | What it returns |
 |---|---|
@@ -194,6 +197,7 @@ runs and the configured folders. Buttons: **Run**, **Run with delete**, **Stop**
 | `GET /api/runs/{id}/log/stream` | The log as Server-Sent Events, live while the run is going |
 | `DELETE /api/runs` | Delete all history |
 | `GET /api/config` | The effective configuration, secrets masked |
+| `GET /api/truenas` | Pools (usage, health, scrub) and alerts as the TrueNAS card shows them |
 | `GET /api/pool_status` | `{"sync_errors": N, "alerts": M, "<pool>": "X TB"}`, or `{"sync_errors": N, "truenas": "disabled"}` |
 | `GET /docs` | Interactive API documentation |
 
