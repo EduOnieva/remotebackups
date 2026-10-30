@@ -5,8 +5,8 @@ services:
     image: alpine:3.24.3
     command: >
       sh -c 'apk add --no-cache openssh-keygen >/dev/null &&
-             [ -f /keys/id_ed25519 ] || ssh-keygen -q -t ed25519 -N "" -f /keys/id_ed25519;
-             chmod 644 /keys/id_ed25519 /keys/id_ed25519.pub'
+             [ -f /keys/ssh_key ] || ssh-keygen -q -t ed25519 -N "" -f /keys/ssh_key;
+             chmod 644 /keys/ssh_key /keys/ssh_key.pub'
     volumes:
       - keys:/keys
 
@@ -33,11 +33,10 @@ services:
     environment:
       - REMOTE_HOST=sshd
       - REMOTE_USER=backup
-      - SSH_KEY=/keys/id_ed25519
       - CRON_SCHEDULE=
       - LOG_LEVEL=DEBUG
     volumes:
-      - keys:/keys:ro
+      - keys:/run/secrets:ro # the generated key lands at the default /run/secrets/ssh_key
       - app-config:/config
       - source:/data:ro
 

@@ -3,7 +3,7 @@
 # published on the LAN unless you uncomment the ports below.
 #
 # 1. Create an auth key at https://login.tailscale.com/admin/settings/keys and set TS_AUTHKEY.
-# 2. Put your SSH private key in ./config/ssh/ (one key: it is picked up automatically).
+# 2. Point the key volume below at your SSH private key.
 # 3. Mount each folder to back up read-only under /data and set REMOTE_HOST / REMOTE_USER
 #    (REMOTE_HOST is the destination's tailnet IP or MagicDNS name).
 # 4. docker compose -f docker-compose.tailscale.yaml up -d
@@ -51,6 +51,7 @@ services:
     stop_grace_period: 30s
     volumes:
       - ./config:/config
+      - ~/.ssh/id_ed25519:/run/secrets/ssh_key:ro # your private key, read-only; never copied anywhere
       - /path/to/documents:/data/documents:ro
       - /path/to/photos:/data/photos:ro
     environment:

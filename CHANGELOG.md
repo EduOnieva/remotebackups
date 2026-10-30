@@ -11,6 +11,7 @@ the bash sync script, busybox cron and the stdlib web server.
 - Live log streaming (Server-Sent Events) in the web UI.
 - `config.yaml` with validated folders and options, re-read before every run; a commented example is written on first start.
 - `/healthz` for Docker, `/api/runs` history and detail endpoints, `/api/config` (secrets masked), `/docs`.
+- The private key is mounted read-only at `/run/secrets/ssh_key` (or `SSH_KEY`), never copied into `/config`.
 - Host keys pinned on first use (`SSH_HOST_KEY_POLICY=tofu`), optional password authentication (`SSH_PASSWORD`), `FILE__<VAR>` secrets.
 - Remote reachability probe every five minutes, shown in the UI.
 - A Tailscale sidecar compose file with a health-checked dependency, and a plain compose file for direct destinations.

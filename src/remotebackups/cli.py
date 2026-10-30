@@ -75,7 +75,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         problems = format_validation_errors(exc) if isinstance(exc, ValidationError) else [str(exc)]
         return _report(ConfigError([f"environment: {p}" for p in problems]))
     configure_logging(env.log_level)
-    paths = ConfigPaths(config_dir=env.config_dir, runtime_dir=env.runtime_dir)
+    paths = ConfigPaths(
+        config_dir=env.config_dir, runtime_dir=env.runtime_dir, secrets_dir=env.secrets_dir
+    )
     paths.ensure()
     ensure_config_files(paths)
     try:

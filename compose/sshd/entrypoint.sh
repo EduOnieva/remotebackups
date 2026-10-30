@@ -2,9 +2,9 @@
 # Install the generated test key for the key user, prepare destinations, start sshd.
 set -eu
 
-until [ -f /keys/id_ed25519.pub ]; do sleep 0.2; done
+until [ -f /keys/ssh_key.pub ]; do sleep 0.2; done
 mkdir -p /home/backup/.ssh
-cp /keys/id_ed25519.pub /home/backup/.ssh/authorized_keys
+cp /keys/ssh_key.pub /home/backup/.ssh/authorized_keys
 chown -R backup:backup /home/backup/.ssh
 chmod 700 /home/backup/.ssh
 chmod 600 /home/backup/.ssh/authorized_keys

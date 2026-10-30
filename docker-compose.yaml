@@ -2,7 +2,7 @@
 # This file is for a destination reachable directly (LAN, a host already on your VPN).
 # For a destination reached through Tailscale, use docker-compose.tailscale.yaml instead.
 #
-# 1. Put your SSH private key in ./config/ssh/ (one key: it is picked up automatically).
+# 1. Point the key volume below at your SSH private key.
 # 2. Mount each folder to back up read-only under /data and set REMOTE_HOST / REMOTE_USER.
 # 3. docker compose up -d, then open http://<this-host>:8080 and edit ./config/config.yaml
 #    (a commented example is written on first start; folders are re-read before every run).
@@ -16,6 +16,7 @@ services:
       - "8080:8080"
     volumes:
       - ./config:/config
+      - ~/.ssh/id_ed25519:/run/secrets/ssh_key:ro # your private key, read-only; never copied anywhere
       - /path/to/documents:/data/documents:ro
       - /path/to/photos:/data/photos:ro
     environment:

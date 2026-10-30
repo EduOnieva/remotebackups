@@ -22,15 +22,20 @@ through Tailscale, or a machine on your LAN.
 
 ## Quick start
 
-1. Create a folder for the container's state and put your SSH private key in it:
+1. Create a folder for the container's state. Your SSH private key stays where it is: the
+   compose file below mounts that one file read-only at `/run/secrets/ssh_key`, the place the
+   container looks by default.
 
    ```bash
-   mkdir -p remotebackups/config/ssh
-   cp ~/.ssh/id_ed25519 remotebackups/config/ssh/
+   mkdir -p remotebackups/config
    ```
 
-   One key in `config/ssh` is picked up automatically. The matching public key goes into the
-   destination user's `authorized_keys` (on TrueNAS: the user's *Public SSH Key* field).
+   The matching public key goes into the destination user's `authorized_keys` (on TrueNAS:
+   the user's *Public SSH Key* field). The key must have no passphrase, since nobody is there
+   to type it. A key used only for these backups is the safer choice:
+   `ssh-keygen -t ed25519 -N "" -f ~/.ssh/remotebackups`, then mount that file instead.
+   Compose's own `secrets:` feature also lands files in `/run/secrets`, so
+   `secrets: {ssh_key: {file: ~/.ssh/id_ed25519}}` works without any other setting.
 
 2. Save a compose file next to it. For a destination you can reach directly:
 
@@ -45,6 +50,7 @@ through Tailscale, or a machine on your LAN.
          - "8080:8080"
        volumes:
          - ./config:/config
+         - ~/.ssh/id_ed25519:/run/secrets/ssh_key:ro
          - /srv/documents:/data/documents:ro
          - /srv/photos:/data/photos:ro
        environment:
@@ -83,7 +89,7 @@ folders and rsync options in the file. `remotebackups print-config --redact` sho
 | `REMOTE_HOST` | required | Destination host: IP, DNS or MagicDNS name |
 | `REMOTE_USER` | required | SSH user on the destination |
 | `REMOTE_PORT` | `22` | SSH port |
-| `SSH_KEY` | auto | Key file name under `/config/ssh`, or an absolute path. Auto-detected when exactly one key is there |
+| `SSH_KEY` | `/run/secrets/ssh_key` | Path of the private key inside the container; a bare name is looked up under `/run/secrets` |
 | `SSH_PASSWORD` | | Password authentication instead of a key. Works, but a key is the recommendation |
 | `SSH_HOST_KEY_POLICY` | `tofu` | `tofu` pins the host key on first use and refuses changes; `strict` requires a known key; `insecure` ignores host keys |
 | `CRON_SCHEDULE` | `30 2 * * 1` | When scheduled runs happen. Empty disables them |
@@ -212,7 +218,7 @@ renamed with `TRUENAS_POOL_ALIASES` so dashboards keep stable keys.
 - **Logs.** The application logs to stdout (`docker logs remotebackups`); the compose files
   rotate them through Docker. Run logs are files under `config/runs/`, one per run, deleted
   after `HISTORY_KEEP_DAYS`.
-- **State.** Everything is under `/config`: `config.yaml`, `ssh/` (your key and the pinned
+- **State.** Everything is under `/config`: `config.yaml`, `ssh/` (the pinned
   `known_hosts`), `runs/`. Back that folder up and the container is disposable.
 - **Changed destination host key.** With the default `tofu` policy a changed key fails the
   connection and the status says so. If the server was reinstalled, delete its line from
@@ -228,7 +234,7 @@ renamed with `TRUENAS_POOL_ALIASES` so dashboards keep stable keys.
 Version 2 is a rewrite; the v1 code is tagged `v1.2.0`. What changes for a v1 deployment:
 
 - The routes JSON becomes `folders:` in `config/config.yaml`; `ROUTES_FILE`, `SSH_KEY_FILE`
-  and `/mnt/ssh_keys` are gone. Put the key in `config/ssh/` instead.
+  and `/mnt/ssh_keys` are gone. Mount the key file read-only at `/run/secrets/ssh_key` instead.
 - `REMOTE_API_TOKEN` is now `TRUENAS_API_KEY`; `TRUENAS_DISABLED` is gone (TrueNAS is on
   when a key is set). `TRUENAS_POOL_ALIASES` is unchanged.
 - The UI moved from port 80 to 8080 inside the container; update your port mapping.

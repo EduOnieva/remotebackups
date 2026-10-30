@@ -15,22 +15,14 @@ def remote(**overrides: object) -> RemoteConfig:
 
 
 class TestResolveKey:
-    def test_single_key_is_auto_detected(self, paths: ConfigPaths, ssh_key: Path) -> None:
-        (paths.ssh_dir / "id_ed25519.pub").write_text("pub")
-        paths.known_hosts.touch()
+    def test_default_location_is_the_secrets_mount(self, paths: ConfigPaths, ssh_key: Path) -> None:
+        assert ssh_key == paths.secrets_dir / "ssh_key"
         assert SshSetup(paths, remote()).resolve_key() == ssh_key
 
-    def test_several_keys_need_an_explicit_choice(self, paths: ConfigPaths, ssh_key: Path) -> None:
-        (paths.ssh_dir / "id_rsa").write_text("other")
-        with pytest.raises(
-            SshSetupError, match=r"Several keys .*id_ed25519, id_rsa.*; set SSH_KEY"
-        ):
-            SshSetup(paths, remote()).resolve_key()
-
-    def test_explicit_name_is_looked_up_in_the_ssh_dir(
-        self, paths: ConfigPaths, ssh_key: Path
-    ) -> None:
-        assert SshSetup(paths, remote(ssh_key="id_ed25519")).resolve_key() == ssh_key
+    def test_explicit_name_is_looked_up_under_the_secrets_dir(self, paths: ConfigPaths) -> None:
+        other = paths.secrets_dir / "backup_key"
+        other.write_text("k")
+        assert SshSetup(paths, remote(ssh_key="backup_key")).resolve_key() == other
 
     def test_explicit_absolute_path(self, paths: ConfigPaths, tmp_path: Path) -> None:
         key = tmp_path / "elsewhere.key"
@@ -41,8 +33,8 @@ class TestResolveKey:
         with pytest.raises(SshSetupError, match="SSH key not found"):
             SshSetup(paths, remote(ssh_key="nope")).resolve_key()
 
-    def test_no_key_and_no_password_is_an_error(self, paths: ConfigPaths) -> None:
-        with pytest.raises(SshSetupError, match=r"No SSH key .* and no SSH_PASSWORD"):
+    def test_no_key_and_no_password_names_the_expected_path(self, paths: ConfigPaths) -> None:
+        with pytest.raises(SshSetupError, match=rf"No SSH key at {paths.secrets_dir}/ssh_key"):
             SshSetup(paths, remote()).resolve_key()
 
     def test_password_without_key_is_fine(self, paths: ConfigPaths) -> None:

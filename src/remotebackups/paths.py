@@ -10,6 +10,8 @@ class ConfigPaths:
 
     config_dir: Path = Path("/config")
     runtime_dir: Path = Path("/run/remotebackups")
+    # Where a mounted key is expected; also where Compose `secrets:` puts files
+    secrets_dir: Path = Path("/run/secrets")
 
     @property
     def config_file(self) -> Path:
@@ -34,6 +36,10 @@ class ConfigPaths:
     @property
     def runtime_ssh_dir(self) -> Path:
         return self.runtime_dir / "ssh"
+
+    @property
+    def default_ssh_key(self) -> Path:
+        return self.secrets_dir / "ssh_key"
 
     def ensure(self) -> None:
         """Create the directories the app writes to. The ssh ones are private to root."""

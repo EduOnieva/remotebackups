@@ -16,6 +16,7 @@ FAKE_BIN = Path(__file__).parent / "fakes" / "bin"
 ENV_VARS = (
     "CONFIG_DIR",
     "RUNTIME_DIR",
+    "SECRETS_DIR",
     "WEB_PORT",
     "LOG_LEVEL",
     "TZ",
@@ -59,9 +60,14 @@ def paths(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> ConfigPaths:
     """A throwaway /config and runtime dir, also exported as CONFIG_DIR for the CLI."""
     config_dir = tmp_path / "config"
     runtime_dir = tmp_path / "run"
+    secrets_dir = tmp_path / "secrets"
+    secrets_dir.mkdir()
     monkeypatch.setenv("CONFIG_DIR", str(config_dir))
     monkeypatch.setenv("RUNTIME_DIR", str(runtime_dir))
-    config_paths = ConfigPaths(config_dir=config_dir, runtime_dir=runtime_dir)
+    monkeypatch.setenv("SECRETS_DIR", str(secrets_dir))
+    config_paths = ConfigPaths(
+        config_dir=config_dir, runtime_dir=runtime_dir, secrets_dir=secrets_dir
+    )
     config_paths.ensure()
     return config_paths
 
@@ -83,7 +89,7 @@ def fake_bin(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> FakeBinaries:
 
 @pytest.fixture
 def ssh_key(paths: ConfigPaths) -> Path:
-    key = paths.ssh_dir / "id_ed25519"
+    key = paths.default_ssh_key
     key.write_text("-----BEGIN OPENSSH PRIVATE KEY-----\nfake\n-----END OPENSSH PRIVATE KEY-----\n")
     key.chmod(0o644)
     return key

@@ -10,8 +10,8 @@ remote:
   # host: 100.64.0.9          # IP or MagicDNS name
   # user: backup
   port: 22                    # REMOTE_PORT
-  # ssh_key: id_ed25519       # file under /config/ssh, or an absolute path (SSH_KEY).
-                              # Auto-detected when exactly one key lives in /config/ssh
+  # ssh_key: null            # SSH_KEY: path of the private key. Default /run/secrets/ssh_key,
+                              # where the compose file mounts it read-only
   # password: null            # SSH_PASSWORD; key auth is the default and the recommendation
   host_key_policy: tofu       # tofu: trust on first use and pin | strict: must already be known | insecure
   # host_key: null            # a pinned "ssh-ed25519 AAAA..." line; implies strict

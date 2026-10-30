@@ -21,7 +21,6 @@ logger = logging.getLogger(__name__)
 HOST_KEY_CHANGED = re.compile(
     r"REMOTE HOST IDENTIFICATION HAS CHANGED|Host key verification failed"
 )
-SKIPPED_KEY_NAMES = frozenset({"known_hosts", "config", "authorized_keys"})
 
 
 class SshSetupError(Exception):
@@ -56,33 +55,26 @@ class SshSetup:
         return self._remote.password.get_secret_value() if self._remote.password else None
 
     def resolve_key(self) -> Path | None:
-        """The private key to use, or None when password auth is configured instead."""
+        """The private key to use, or None when password auth is configured instead.
+
+        Without SSH_KEY the key is expected at the secrets mount point, which is outside
+        /config so that mounting it never leaves a placeholder file on the host.
+        """
         if self._remote.ssh_key:
             candidate = Path(self._remote.ssh_key)
             if not candidate.is_absolute():
-                candidate = self._paths.ssh_dir / candidate
+                candidate = self._paths.secrets_dir / candidate
             if not candidate.is_file():
                 raise SshSetupError(f"SSH key not found: {candidate}")
             return candidate
-
-        candidates: list[Path] = []
-        if self._paths.ssh_dir.is_dir():
-            candidates = sorted(
-                entry
-                for entry in self._paths.ssh_dir.iterdir()
-                if entry.is_file()
-                and entry.suffix != ".pub"
-                and entry.name not in SKIPPED_KEY_NAMES
-            )
-        if len(candidates) == 1:
-            return candidates[0]
-        if len(candidates) > 1:
-            names = ", ".join(entry.name for entry in candidates)
-            raise SshSetupError(f"Several keys in {self._paths.ssh_dir} ({names}); set SSH_KEY")
+        default = self._paths.default_ssh_key
+        if default.is_file():
+            return default
         if self.password is not None:
             return None
         raise SshSetupError(
-            f"No SSH key in {self._paths.ssh_dir} and no SSH_PASSWORD set; mount a key or set one"
+            f"No SSH key at {default} and no SSH_PASSWORD set; mount your private key there "
+            "read-only or point SSH_KEY at it"
         )
 
     def check_key(self, key: Path) -> None:
