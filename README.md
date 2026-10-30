@@ -22,6 +22,8 @@ through Tailscale, or a machine on your LAN.
 - **TrueNAS SCALE aware.** Optional card with each pool's usage, health and last scrub plus the
   current alerts, from the TrueNAS API; `/api/pool_status` keeps the v1 shape for dashboards.
 
+![The dashboard after a week of runs: status, remote and TrueNAS cards, the last run's log, the run history and the folders](docs/screenshots/overview.png)
+
 ## Quick start
 
 1. Create a folder for the container's state. Your SSH private key stays where it is: the
@@ -198,6 +200,10 @@ folder is paused; the button then reads **Resume**. The permanent switch stays i
 `config.yaml` (`enabled: false`); a folder disabled there has no buttons, since it cannot be
 turned on from the UI. Pausing is refused while a run is active, since it could only apply
 to the next one.
+
+![A run in progress: progress bar, current folder and the live log](docs/screenshots/running.png)
+
+<img src="docs/screenshots/phone.png" width="360" alt="The same page on a phone">
 
 | Endpoint | What it returns |
 |---|---|
