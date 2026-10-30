@@ -22,6 +22,9 @@ async def test_status_when_idle_with_no_history(client: AsyncClient, harness: Ha
     assert body["remote"] == {
         "host": "10.0.0.9",
         "user": "backup",
+        "port": 22,
+        "auth": "key",
+        "host_key_policy": "tofu",
         "ok": None,
         "message": "not checked yet",
         "checked_at": None,
@@ -45,6 +48,21 @@ async def test_status_during_a_run(client: AsyncClient, harness: Harness) -> Non
     assert body["current_run"]["folders_total"] == 2
     assert body["last_run"]["outcome"] == "completed_with_errors"
     assert body["last_run"]["folders_failed"] == 1
+
+
+async def test_check_remote_probes_now_and_returns_the_result(
+    client: AsyncClient, harness: Harness
+) -> None:
+    harness.remote.ok = False
+    harness.remote.message = "Connection refused"
+    harness.remote.next_ok = True
+
+    response = await client.post("/api/remote/check")
+
+    assert response.status_code == 200
+    assert harness.remote.probes == 1
+    assert response.json()["ok"] is True
+    assert (await client.get("/api/status")).json()["remote"]["ok"] is True
 
 
 async def test_folders(client: AsyncClient) -> None:

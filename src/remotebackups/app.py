@@ -56,6 +56,8 @@ class Application:
         self._shutdown = asyncio.Event()
         self._shutdown_reason = ""
         self._probe_task: asyncio.Task[None] | None = None
+        # The periodic loop and "Check now" from the UI must not run two ssh probes at once
+        self._probe_lock = asyncio.Lock()
         self._server: _QuietServer | None = None
         self._serve_task: asyncio.Task[None] | None = None
         # Built by run(); typed as Optional so callers can ask before startup finished
@@ -126,13 +128,17 @@ class Application:
 
     async def probe_remote(self) -> RemoteStatus:
         """Check the SSH login once and remember the result for the UI."""
-        try:
-            config = self.load_config()
-            ssh = SshSetup(self.paths, config.remote)
-            result = await ssh.probe(ssh.prepare())
-            ok, message = result.ok, result.message
-        except (ConfigError, SshSetupError) as exc:
-            ok, message = False, str(exc)
+        async with self._probe_lock:
+            try:
+                config = self.load_config()
+                ssh = SshSetup(self.paths, config.remote)
+                result = await ssh.probe(ssh.prepare())
+                ok, message = result.ok, result.message
+            except (ConfigError, SshSetupError) as exc:
+                ok, message = False, str(exc)
+            return self._record_probe(ok, message)
+
+    def _record_probe(self, ok: bool, message: str) -> RemoteStatus:
         previous = self.remote_status
         self.remote_status = RemoteStatus(ok, message, self.clock.now())
         if ok and previous.ok is False:
@@ -154,6 +160,7 @@ class Application:
             next_run_at=lambda: scheduler.next_run_at,
             scheduler_alive=lambda: scheduler.alive,
             remote_status=lambda: self.remote_status,
+            probe_remote=self.probe_remote,
             version=__version__,
             started_at=self.started_at,
         )

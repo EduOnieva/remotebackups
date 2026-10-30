@@ -29,6 +29,15 @@ class FakeRemote:
     ok: bool | None = True
     message: str = "ok"
     checked_at: datetime | None = None
+    probes: int = 0
+    # What the next probe will report, so a test can watch "no" turn into "yes"
+    next_ok: bool = True
+    next_message: str = "ok"
+
+    async def probe(self) -> "FakeRemote":
+        self.probes += 1
+        self.ok, self.message = self.next_ok, self.next_message
+        return self
 
 
 class FakeEngine:
@@ -160,6 +169,7 @@ async def client(harness: Harness) -> AsyncIterator[AsyncClient]:
         next_run_at=lambda: harness.next_run_at,
         scheduler_alive=lambda: harness.scheduler_alive,
         remote_status=lambda: harness.remote,
+        probe_remote=harness.remote.probe,
         version="2.0.0-test",
         started_at=harness.clock.now(),
     )

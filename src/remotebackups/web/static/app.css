@@ -18,15 +18,23 @@ main > *, .cards > * { min-width: 0; }
 .card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
 .card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .card-head h2 { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.card-head:not(summary) { margin-bottom: 10px; }
 summary.card-head { cursor: pointer; list-style: none; user-select: none; }
 summary.card-head::-webkit-details-marker { display: none; }
 summary.card-head h2::before { content: "\25B8"; display: inline-block; width: 1em; transition: transform .15s; }
 details[open] > summary.card-head h2::before { transform: rotate(90deg); }
 details[open] > summary.card-head { margin-bottom: 10px; }
 .big { font-size: 22px; font-weight: 600; margin: 0 0 8px; }
+.bar.progress-fill span { background: var(--accent); }
 .muted { color: var(--muted); font-weight: 400; }
 .small { font-size: 13px; }
 dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; margin: 0; }
+/* Row wrappers let a dt/dd pair be hidden together while staying in the two-column grid */
+dl > div { display: contents; }
+dl > div[hidden] { display: none; }
+#progress-bar { margin: -2px 0 10px; }
+#last-run { white-space: normal; }
+#remote-details { margin: -4px 0 8px; }
 dd { white-space: nowrap; }
 dt { color: var(--muted); }
 dd { margin: 0; }

@@ -3,7 +3,7 @@
 Tests hand in fakes; `Application` hands in the real engine, history and services.
 """
 
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Protocol
@@ -54,5 +54,6 @@ class Services:
     next_run_at: Callable[[], datetime | None]
     scheduler_alive: Callable[[], bool]
     remote_status: Callable[[], RemoteStatusLike]
+    probe_remote: Callable[[], Awaitable[RemoteStatusLike]]
     version: str
     started_at: datetime

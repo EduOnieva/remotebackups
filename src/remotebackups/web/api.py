@@ -24,7 +24,7 @@ from remotebackups.web.schemas import (
     RunSummary,
     StatusResponse,
 )
-from remotebackups.web.services import Services
+from remotebackups.web.services import RemoteStatusLike, Services
 from remotebackups.web.sse import stream_run_log
 
 router = APIRouter(prefix="/api")
@@ -37,11 +37,24 @@ def services(request: Request) -> Services:
     return result
 
 
+def _remote_info(svc: Services, remote: RemoteStatusLike) -> RemoteInfo:
+    config = svc.config_provider()
+    return RemoteInfo(
+        host=config.remote.host,
+        user=config.remote.user,
+        port=config.remote.port,
+        auth="password" if config.remote.password else "key",
+        host_key_policy=config.remote.host_key_policy.value,
+        ok=remote.ok,
+        message=remote.message,
+        checked_at=remote.checked_at,
+    )
+
+
 @router.get("/status", response_model=StatusResponse)
 async def status(request: Request) -> StatusResponse:
     svc = services(request)
     config = svc.config_provider()
-    remote = svc.remote_status()
     current = svc.engine.current
     return StatusResponse(
         state=svc.engine.state,
@@ -49,13 +62,7 @@ async def status(request: Request) -> StatusResponse:
         last_run=_last_finished(svc),
         next_run_at=svc.next_run_at(),
         schedule=config.schedule.cron,
-        remote=RemoteInfo(
-            host=config.remote.host,
-            user=config.remote.user,
-            ok=remote.ok,
-            message=remote.message,
-            checked_at=remote.checked_at,
-        ),
+        remote=_remote_info(svc, svc.remote_status()),
         truenas_enabled=svc.truenas.enabled,
         dark_theme=config.ui.dark_theme,
         locale=config.ui.locale,
@@ -63,6 +70,13 @@ async def status(request: Request) -> StatusResponse:
         version=svc.version,
         started_at=svc.started_at,
     )
+
+
+@router.post("/remote/check", response_model=RemoteInfo)
+async def check_remote(request: Request) -> RemoteInfo:
+    """Probe the SSH login now instead of waiting for the periodic check."""
+    svc = services(request)
+    return _remote_info(svc, await svc.probe_remote())
 
 
 @router.get("/folders", response_model=list[FolderInfo])

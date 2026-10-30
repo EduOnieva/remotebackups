@@ -1,6 +1,7 @@
 """Response and request bodies of the JSON API."""
 
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -61,6 +62,9 @@ class RunDetail(RunSummary):
 class RemoteInfo(BaseModel):
     host: str | None
     user: str | None
+    port: int
+    auth: Literal["key", "password"]
+    host_key_policy: str
     ok: bool | None
     message: str
     checked_at: datetime | None

@@ -63,6 +63,20 @@ function fmtDate(iso) {
     return new Intl.DateTimeFormat(undefined, options).format(new Date(iso));
   }
 }
+// "in 2 days" / "5 min ago" in the configured locale; the exact time goes in a tooltip
+function fmtRelative(iso) {
+  const seconds = Math.round((new Date(iso) - Date.now()) / 1000);
+  const abs = Math.abs(seconds);
+  const [value, unit] = abs < 60 ? [seconds, "second"]
+    : abs < 3600 ? [Math.round(seconds / 60), "minute"]
+    : abs < 86400 ? [Math.round(seconds / 3600), "hour"]
+    : [Math.round(seconds / 86400), "day"];
+  try {
+    return new Intl.RelativeTimeFormat(dateLocale, { numeric: "auto" }).format(value, unit);
+  } catch {
+    return new Intl.RelativeTimeFormat(undefined, { numeric: "auto" }).format(value, unit);
+  }
+}
 const fmtDuration = (s) => {
   if (s == null) return "–";
   const total = Math.round(s);
@@ -100,29 +114,86 @@ function renderStatus(s) {
   const stateEl = $("state");
   stateEl.textContent = running ? (s.state === "cancelling" ? "Stopping…" : "Running") : (s.last_run ? label(s.last_run.outcome) : "No run yet");
   stateEl.className = `big state-${running ? s.state : (s.last_run?.outcome || "idle")}`;
-  $("current-folder").textContent = current?.current_folder || "–";
-  $("elapsed").textContent = current ? fmtDuration((Date.now() - new Date(current.started_at)) / 1000) : "–";
-  // While idle the header already shows the last outcome; repeat it only during a run
-  $("last-run").textContent = !s.last_run ? "–"
-    : running ? `${fmtTime(s.last_run.finished_at, false)} · ${label(s.last_run.outcome)}`
-    : fmtTime(s.last_run.finished_at, false);
-  $("next-run").textContent = s.next_run_at ? fmtTime(s.next_run_at, false) : (s.schedule ? "computing…" : "schedule disabled");
+  renderProgress(current);
+  renderLastRun(s.last_run, running);
+  const next = $("next-run");
+  next.textContent = s.next_run_at ? `${fmtRelative(s.next_run_at)} · ${fmtTime(s.next_run_at, false)}`
+    : (s.schedule ? "computing…" : "schedule disabled");
+  next.title = s.schedule ? `cron: ${s.schedule}` : "";
   $("run").disabled = running;
   $("run-delete").disabled = running;
   $("stop").hidden = !running;
   $("stop").disabled = s.state === "cancelling";
 
-  const ok = s.remote.ok;
-  $("remote-ok").textContent = ok == null ? "checking…" : ok ? "yes" : "no";
-  $("remote-ok").className = ok == null ? "" : ok ? "ok" : "bad";
-  $("remote-checked").textContent = fmtTime(s.remote.checked_at);
-  $("remote-message").textContent = ok === false ? s.remote.message : "";
+  renderRemote(s.remote);
   $("truenas-card").hidden = !s.truenas_enabled;
   // The page-load fetch runs before status reveals TrueNAS is on; fetch now instead of in 60 s
   if (s.truenas_enabled && !truenasLoaded) loadTrueNAS();
 
   if (current && liveRun !== current.id) follow(current.id, current.started_at);
   if (!current && liveRun) { liveRun = null; loadRuns(); }
+}
+
+function renderProgress(current) {
+  // The rows only exist while a run is active; dashes in an idle card say nothing
+  for (const id of ["row-trigger", "row-progress", "row-elapsed", "progress-bar"]) $(id).hidden = !current;
+  if (!current) return;
+  const done = current.folders_ok + current.folders_failed;
+  $("trigger").textContent = `${current.trigger}${current.delete ? ", with delete" : ""}`;
+  $("progress").textContent = `${done} of ${current.folders_total} folders${current.current_folder ? ` · ${current.current_folder}` : ""}`;
+  $("elapsed").textContent = fmtDuration((Date.now() - new Date(current.started_at)) / 1000);
+  const bar = $("progress-bar");
+  bar.className = "bar progress-fill";
+  bar.firstElementChild.style.width = `${current.folders_total ? (done / current.folders_total) * 100 : 0}%`;
+}
+
+function renderLastRun(last, running) {
+  const dd = $("last-run");
+  dd.textContent = "";
+  if (!last) { dd.textContent = "–"; return; }
+  // Idle, the header already carries the outcome; during a run it belongs here
+  const parts = [fmtTime(last.finished_at, false)];
+  if (running) parts.push(label(last.outcome));
+  parts.push(fmtDuration(last.duration_s), `${last.folders_ok}/${last.folders_total} folders`);
+  if (last.files_transferred || last.bytes_sent) parts.push(`${last.files_transferred} files`, fmtBytes(last.bytes_sent));
+  dd.append(parts.join(" · "));
+  if (last.folders_failed) {
+    const failed = document.createElement("span");
+    failed.className = "bad";
+    failed.textContent = ` · ${last.folders_failed} failed`;
+    dd.appendChild(failed);
+  }
+}
+
+const HOST_KEY_LABEL = { tofu: "trust on first use", strict: "strict host key", insecure: "host key unverified" };
+
+function renderRemote(remote) {
+  const ok = remote.ok;
+  $("remote-ok").textContent = ok == null ? "checking…" : ok ? "yes" : "no";
+  $("remote-ok").className = ok == null ? "" : ok ? "ok" : "bad";
+  const checked = $("remote-checked");
+  checked.textContent = remote.checked_at ? fmtRelative(remote.checked_at) : "–";
+  checked.title = remote.checked_at ? fmtTime(remote.checked_at) : "";
+  $("remote-message").textContent = ok === false ? remote.message : "";
+  const details = $("remote-details");
+  details.textContent = "";
+  const parts = [];
+  if (remote.port !== 22) parts.push(`port ${remote.port}`);
+  parts.push(remote.auth === "password" ? "password auth" : "key auth");
+  details.append(parts.join(" · ") + " · ");
+  const policy = document.createElement("span");
+  if (remote.host_key_policy === "insecure") policy.className = "warn-text";
+  policy.textContent = HOST_KEY_LABEL[remote.host_key_policy] || remote.host_key_policy;
+  details.appendChild(policy);
+}
+
+async function checkRemote() {
+  const button = $("check-remote");
+  button.disabled = true;
+  button.textContent = "Checking…";
+  try { renderRemote(await api("/api/remote/check", { method: "POST" })); }
+  catch (e) { toast(e.message, true); }
+  finally { button.disabled = false; button.textContent = "Check now"; }
 }
 
 async function loadStatus() {
@@ -375,6 +446,7 @@ async function clearHistory() {
 $("run").onclick = () => startRun(false);
 $("run-delete").onclick = () => startRun(true);
 $("stop").onclick = stopRun;
+$("check-remote").onclick = checkRemote;
 $("log").addEventListener("scroll", onLogScroll);
 $("jump").onclick = () => { $("log").scrollTop = $("log").scrollHeight; };
 // The button sits inside a <summary>; without preventDefault the click would also fold the card

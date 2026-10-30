@@ -22,19 +22,25 @@
       <article class="card" id="status-card">
         <h2>Status</h2>
         <p class="big" id="state">loading…</p>
+        <div class="bar" id="progress-bar" hidden><span></span></div>
         <dl>
-          <dt>Current folder</dt><dd id="current-folder">–</dd>
-          <dt>Elapsed</dt><dd id="elapsed">–</dd>
-          <dt>Last run</dt><dd id="last-run">–</dd>
-          <dt>Next scheduled</dt><dd id="next-run">–</dd>
+          <div id="row-trigger" hidden><dt>Trigger</dt><dd id="trigger">–</dd></div>
+          <div id="row-progress" hidden><dt>Progress</dt><dd id="progress">–</dd></div>
+          <div id="row-elapsed" hidden><dt>Elapsed</dt><dd id="elapsed">–</dd></div>
+          <div><dt>Last run</dt><dd id="last-run">–</dd></div>
+          <div><dt>Next scheduled</dt><dd id="next-run">–</dd></div>
         </dl>
       </article>
       <article class="card">
-        <h2>Remote</h2>
+        <div class="card-head">
+          <h2>Remote</h2>
+          <button id="check-remote" class="ghost small">Check now</button>
+        </div>
         <p class="big" id="remote-host">{{ remote }}</p>
+        <p class="muted small" id="remote-details"></p>
         <dl>
-          <dt>Reachable</dt><dd id="remote-ok">–</dd>
-          <dt>Checked</dt><dd id="remote-checked">–</dd>
+          <div><dt>Reachable</dt><dd id="remote-ok">–</dd></div>
+          <div><dt>Checked</dt><dd id="remote-checked">–</dd></div>
         </dl>
         <p class="muted small" id="remote-message"></p>
       </article>
