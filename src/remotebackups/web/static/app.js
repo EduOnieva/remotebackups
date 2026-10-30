@@ -17,7 +17,7 @@ let truenasLoaded = false;
 let pendingLines = [];
 let flushTimer = null;
 let hiddenLines = 0;
-let logNotice = "";
+let tailOnly = false;
 // Following is inferred from the scroll position, like most log viewers: at the bottom new
 // lines keep the view pinned there, scrolled up they count into the "jump to bottom" pill
 let following = true;
@@ -367,7 +367,7 @@ function onLogScroll() {
 function resetLog(runId, startedAt, live = false) {
   pendingLines = [];
   hiddenLines = 0;
-  logNotice = "";
+  tailOnly = false;
   following = true;
   unseenLines = 0;
   $("log").textContent = "";
@@ -377,11 +377,12 @@ function resetLog(runId, startedAt, live = false) {
 }
 
 function updateLogNotice() {
-  const parts = [];
-  if (logNotice) parts.push(logNotice);
-  if (hiddenLines) parts.push(`${hiddenLines} earlier lines dropped from the view`);
-  $("log-notice").textContent = parts.join(" · ");
-  $("log-notice").hidden = !parts.length;
+  // One sentence whether the cut came from fetching only the file's tail or from the
+  // line cap of the panel; the title's file name is the link to the whole log
+  const truncated = tailOnly || hiddenLines > 0;
+  const visible = $("log").childElementCount;
+  $("log-notice").textContent = truncated ? `Showing the last ${visible} lines · the full log has more` : "";
+  $("log-notice").hidden = !truncated;
 }
 
 function closeStream() {
@@ -411,9 +412,7 @@ async function showRun(runId) {
     const response = await fetch(`/api/runs/${runId}/log?tail=${LOG_TAIL_BYTES}`);
     if (!response.ok) throw new Error(await response.text());
     const text = await response.text();
-    if (Number(response.headers.get("X-Log-Start")) > 0) {
-      logNotice = `showing the last ${Math.round(LOG_TAIL_BYTES / 1024)} KB`;
-    }
+    tailOnly = Number(response.headers.get("X-Log-Start")) > 0;
     text.split("\n").filter((l, i, a) => l || i < a.length - 1).forEach(appendLine);
     flushLines();
   } catch (e) { toast(e.message, true); }
