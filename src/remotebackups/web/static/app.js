@@ -4,6 +4,9 @@ const $ = (id) => document.getElementById(id);
 const STATUS_INTERVAL_MS = 5000;
 const RUNS_INTERVAL_MS = 15000;
 const TRUENAS_INTERVAL_MS = 60000;
+// The log panel keeps this many lines in the DOM; a big rsync run prints far more
+const MAX_LOG_LINES = 2000;
+const LOG_TAIL_BYTES = 262144;
 
 let selectedRun = null;
 let liveRun = null;
@@ -11,6 +14,10 @@ let stream = null;
 let runs = [];
 let statusTimer = null;
 let truenasLoaded = false;
+let pendingLines = [];
+let flushTimer = null;
+let hiddenLines = 0;
+let logNotice = "";
 
 async function api(path, options = {}) {
   const response = await fetch(path, { headers: { "Content-Type": "application/json" }, ...options });
@@ -131,13 +138,50 @@ async function loadTrueNAS() {
 }
 
 function appendLine(text) {
+  // Lines are buffered and flushed a few times a second: one DOM update and one scroll per
+  // batch instead of one per line, which is what made a busy run freeze the page
+  pendingLines.push(text);
+  if (!flushTimer) flushTimer = setTimeout(flushLines, 150);
+}
+
+function flushLines() {
+  flushTimer = null;
+  if (!pendingLines.length) return;
   const log = $("log");
-  const span = document.createElement("span");
-  span.textContent = text + "\n";
-  if (text.includes("[ERROR]")) span.className = "err";
-  else if (text.includes("[WARN]")) span.className = "warn";
-  log.appendChild(span);
+  const fragment = document.createDocumentFragment();
+  for (const text of pendingLines) {
+    const span = document.createElement("span");
+    span.textContent = text + "\n";
+    if (text.includes("[ERROR]")) span.className = "err";
+    else if (text.includes("[WARN]")) span.className = "warn";
+    fragment.appendChild(span);
+  }
+  pendingLines = [];
+  log.appendChild(fragment);
+  while (log.childElementCount > MAX_LOG_LINES) {
+    log.removeChild(log.firstElementChild);
+    hiddenLines++;
+  }
+  updateLogNotice();
   if ($("follow").checked) log.scrollTop = log.scrollHeight;
+}
+
+function resetLog(runId, title) {
+  pendingLines = [];
+  hiddenLines = 0;
+  logNotice = "";
+  $("log").textContent = "";
+  $("log-title").textContent = title;
+  $("log-download").href = `/api/runs/${runId}/log/download`;
+  updateLogNotice();
+}
+
+function updateLogNotice() {
+  const parts = [];
+  if (logNotice) parts.push(logNotice);
+  if (hiddenLines) parts.push(`${hiddenLines} earlier lines dropped from the view`);
+  $("log-notice-text").textContent = parts.join(" · ");
+  $("log-notice").hidden = !parts.length;
 }
 
 function closeStream() {
@@ -148,12 +192,11 @@ function follow(runId) {
   closeStream();
   selectedRun = runId;
   liveRun = runId;
-  $("log").textContent = "";
-  $("log-title").textContent = `Log · ${runId} (live)`;
+  resetLog(runId, `Log · ${runId} (live)`);
   renderRuns();
   stream = new EventSource(`/api/runs/${runId}/log/stream`);
   stream.addEventListener("line", (e) => appendLine(e.data));
-  stream.addEventListener("end", () => { closeStream(); $("log-title").textContent = `Log · ${runId}`; loadRuns(); loadStatus(); });
+  stream.addEventListener("end", () => { closeStream(); flushLines(); $("log-title").textContent = `Log · ${runId}`; loadRuns(); loadStatus(); });
   stream.onerror = () => { /* the browser reconnects with Last-Event-ID on its own */ };
 }
 
@@ -161,20 +204,17 @@ async function showRun(runId) {
   closeStream();
   selectedRun = runId;
   renderRuns();
-  const log = $("log");
-  log.textContent = "";
-  $("log-title").textContent = `Log · ${runId}`;
+  resetLog(runId, `Log · ${runId}`);
   try {
-    let offset = 0;
-    for (;;) {
-      const response = await fetch(`/api/runs/${runId}/log?offset=${offset}&max_bytes=262144`);
-      if (!response.ok) throw new Error(await response.text());
-      const text = await response.text();
-      text.split("\n").filter((l, i, a) => l || i < a.length - 1).forEach(appendLine);
-      const next = Number(response.headers.get("X-Log-Offset"));
-      if (response.headers.get("X-Log-Complete") === "true" || next === offset) break;
-      offset = next;
+    // Only the end of a finished log is shown; the full file is one click away
+    const response = await fetch(`/api/runs/${runId}/log?tail=${LOG_TAIL_BYTES}`);
+    if (!response.ok) throw new Error(await response.text());
+    const text = await response.text();
+    if (Number(response.headers.get("X-Log-Start")) > 0) {
+      logNotice = `showing the last ${Math.round(LOG_TAIL_BYTES / 1024)} KB`;
     }
+    text.split("\n").filter((l, i, a) => l || i < a.length - 1).forEach(appendLine);
+    flushLines();
   } catch (e) { toast(e.message, true); }
 }
 
@@ -195,7 +235,7 @@ async function stopRun() {
 
 async function clearHistory() {
   if (!confirm("Delete all run records and logs?")) return;
-  try { await api("/api/runs", { method: "DELETE" }); selectedRun = null; $("log").textContent = ""; $("log-title").textContent = "Log"; await loadRuns(); await loadStatus(); }
+  try { await api("/api/runs", { method: "DELETE" }); selectedRun = null; resetLog("", "Log"); $("log-download").removeAttribute("href"); await loadRuns(); await loadStatus(); }
   catch (e) { toast(e.message, true); }
 }
 

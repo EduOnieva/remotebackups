@@ -3,7 +3,7 @@
 from typing import Annotated, Any
 
 from fastapi import APIRouter, HTTPException, Query, Request, Response
-from fastapi.responses import PlainTextResponse, StreamingResponse
+from fastapi.responses import FileResponse, PlainTextResponse, StreamingResponse
 
 from remotebackups.config import ConfigError
 from remotebackups.sync import (
@@ -135,18 +135,45 @@ async def get_run_log(
     run_id: str,
     offset: Annotated[int, Query(ge=0)] = 0,
     max_bytes: Annotated[int, Query(ge=1, le=MAX_LOG_CHUNK)] = 65536,
+    tail: Annotated[int | None, Query(ge=1, le=MAX_LOG_CHUNK)] = None,
 ) -> PlainTextResponse:
+    """A chunk of the log from `offset`, or with `tail` the last N bytes from a line boundary.
+
+    `X-Log-Start` and `X-Log-Offset` are the byte range returned; `X-Log-Complete` says
+    whether the run is over and the range reaches the end of the file.
+    """
     svc = services(request)
     record = svc.history.get(run_id)
     if record is None:
         raise HTTPException(404, f"run {run_id} not found")
-    chunk, size = _read_chunk(svc.history.log_path(run_id), offset, max_bytes)
-    new_offset = offset + len(chunk)
+    path = svc.history.log_path(run_id)
+    if tail is not None:
+        start, chunk, size = _read_tail(path, tail)
+    else:
+        start = offset
+        chunk, size = _read_chunk(path, offset, max_bytes)
+    new_offset = start + len(chunk)
     complete = record.outcome is not RunOutcome.RUNNING and new_offset >= size
     return PlainTextResponse(
         chunk.decode("utf-8", "replace"),
-        headers={"X-Log-Offset": str(new_offset), "X-Log-Complete": str(complete).lower()},
+        headers={
+            "X-Log-Start": str(start),
+            "X-Log-Offset": str(new_offset),
+            "X-Log-Complete": str(complete).lower(),
+        },
     )
+
+
+@router.get("/runs/{run_id}/log/download")
+async def download_run_log(request: Request, run_id: str) -> FileResponse:
+    """The whole log file, however large, as a download."""
+    svc = services(request)
+    if svc.history.get(run_id) is None:
+        raise HTTPException(404, f"run {run_id} not found")
+    path = svc.history.log_path(run_id)
+    if not path.exists():
+        raise HTTPException(404, f"run {run_id} has no log")
+    return FileResponse(path, media_type="text/plain", filename=f"{run_id}.log")
 
 
 @router.get("/runs/{run_id}/log/stream")
@@ -202,3 +229,20 @@ def _read_chunk(path: Any, offset: int, max_bytes: int) -> tuple[bytes, int]:
         handle.seek(offset)
         data: bytes = handle.read(max_bytes)
     return data, size
+
+
+def _read_tail(path: Any, tail: int) -> tuple[int, bytes, int]:
+    """The last `tail` bytes, moved forward to the next line start so no line is cut."""
+    if not path.exists():
+        return 0, b"", 0
+    size: int = path.stat().st_size
+    start = max(0, size - tail)
+    with path.open("rb") as handle:
+        handle.seek(start)
+        data: bytes = handle.read()
+    if start > 0:
+        newline = data.find(b"\n")
+        if newline >= 0:
+            start += newline + 1
+            data = data[newline + 1 :]
+    return start, data, size

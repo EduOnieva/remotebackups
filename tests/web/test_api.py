@@ -117,6 +117,32 @@ async def test_log_chunks_with_offsets(client: AsyncClient, harness: Harness) ->
     assert (await client.get("/api/runs/missing/log")).status_code == 404
 
 
+async def test_log_tail_starts_at_a_line_boundary(client: AsyncClient, harness: Harness) -> None:
+    run = harness.finished_run()  # log is "line one\nline two\n", 18 bytes
+
+    response = await client.get(f"/api/runs/{run.id}/log?tail=12")
+    assert response.text == "line two\n", "the cut inside 'line one' moves to the next line"
+    assert response.headers["X-Log-Start"] == "9"
+    assert response.headers["X-Log-Offset"] == "18"
+    assert response.headers["X-Log-Complete"] == "true"
+
+    whole = await client.get(f"/api/runs/{run.id}/log?tail=1000")
+    assert whole.text == "line one\nline two\n"
+    assert whole.headers["X-Log-Start"] == "0"
+
+
+async def test_log_download_serves_the_whole_file(client: AsyncClient, harness: Harness) -> None:
+    run = harness.finished_run()
+
+    response = await client.get(f"/api/runs/{run.id}/log/download")
+    assert response.status_code == 200
+    assert response.text == "line one\nline two\n"
+    assert response.headers["content-type"].startswith("text/plain")
+    assert f'filename="{run.id}.log"' in response.headers["content-disposition"]
+
+    assert (await client.get("/api/runs/missing/log/download")).status_code == 404
+
+
 async def test_clear_history(client: AsyncClient, harness: Harness) -> None:
     harness.finished_run()
     assert (await client.delete("/api/runs")).status_code == 204

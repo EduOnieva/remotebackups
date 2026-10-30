@@ -31,6 +31,8 @@ button.ghost { background: transparent; }
 .log { background: var(--log-bg); color: var(--log-text); padding: 12px; border-radius: 6px; max-height: 420px; overflow: auto; font: 12.5px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; white-space: pre-wrap; word-break: break-all; margin: 0; }
 .log .err { color: #ff7b72; }
 .log .warn { color: #e3b341; }
+#log-notice { margin: 0 0 8px; }
+#log-notice a { color: var(--accent); }
 table { width: 100%; border-collapse: collapse; font-size: 14px; }
 th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--border); white-space: nowrap; }
 td.path { white-space: normal; word-break: break-all; color: var(--muted); }
