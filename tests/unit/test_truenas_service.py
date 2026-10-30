@@ -7,6 +7,7 @@ import pytest
 
 from remotebackups.config import Config
 from remotebackups.truenas.client import PoolStatus
+from remotebackups.truenas.models import AlertInfo, PoolInfo
 from remotebackups.truenas.service import DISABLED, TrueNASService
 from tests.fakes.clock import FakeClock
 
@@ -138,3 +139,46 @@ async def test_alerts_are_logged_only_when_they_change(
         "Pool backup-disk-1 state is DEGRADED",
         "TrueNAS alerts cleared",
     ]
+
+
+async def test_details_come_from_the_same_cached_query(
+    clock: FakeClock, make_config: Callable[..., Config]
+) -> None:
+    config = make_config(truenas={"api_key": "1-abc", "cache_seconds": 30})
+    svc = service(config, clock)
+    pool = PoolInfo(
+        name="tank", alias="disk-0", status="ONLINE", healthy=True, size=10, allocated=4, free=6
+    )
+    alert = AlertInfo(level="WARNING", text="Scrub overdue")
+    with patch(
+        "remotebackups.truenas.service.TrueNASClient.query",
+        return_value=PoolStatus(
+            {"alerts": 1, "disk-0": "0.0 TB"}, ("Scrub overdue",), (pool,), (alert,)
+        ),
+    ) as query:
+        details = await svc.details()
+        compat = await svc.pool_status()
+
+    assert query.call_count == 1, "details and pool_status share the cache"
+    assert details.enabled is True
+    assert details.fetched_at == clock.now()
+    assert details.error is None
+    assert details.pools == [pool]
+    assert details.alerts == [alert]
+    assert compat == {"alerts": 1, "disk-0": "0.0 TB"}
+
+
+async def test_details_when_disabled_and_when_unreachable(
+    clock: FakeClock, make_config: Callable[..., Config]
+) -> None:
+    assert (await service(make_config(), clock).details()).enabled is False
+
+    svc = service(make_config(truenas={"api_key": "1-abc"}), clock)
+    with patch(
+        "remotebackups.truenas.service.TrueNASClient.query",
+        return_value=PoolStatus({"error": "Failed to connect to TrueNAS: unreachable"}),
+    ):
+        details = await svc.details()
+    assert details.enabled is True
+    assert details.error == "Failed to connect to TrueNAS: unreachable"
+    assert details.pools == []

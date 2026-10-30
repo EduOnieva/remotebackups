@@ -19,6 +19,7 @@ from remotebackups.sync import (
     RunTrigger,
     UnknownFolderError,
 )
+from remotebackups.truenas.service import TrueNASDetails
 from remotebackups.web import Services, create_app
 from tests.fakes.clock import FakeClock
 
@@ -84,9 +85,13 @@ class FakeTrueNAS:
     def __init__(self) -> None:
         self.enabled = False
         self.answer: dict[str, int | str] = {"truenas": "disabled"}
+        self.detail = TrueNASDetails(enabled=False)
 
     async def pool_status(self) -> dict[str, int | str]:
         return dict(self.answer)
+
+    async def details(self) -> TrueNASDetails:
+        return self.detail
 
 
 @dataclass

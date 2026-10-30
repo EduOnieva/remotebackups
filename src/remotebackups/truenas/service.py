@@ -5,13 +5,26 @@ import logging
 from collections.abc import Callable
 from datetime import datetime, timedelta
 
+from pydantic import BaseModel, Field
+
 from remotebackups.clock import Clock
 from remotebackups.config import Config
 from remotebackups.truenas.client import PoolStatus, TrueNASClient
+from remotebackups.truenas.models import AlertInfo, PoolInfo
 
 logger = logging.getLogger(__name__)
 
 DISABLED: dict[str, int | str] = {"truenas": "disabled"}
+
+
+class TrueNASDetails(BaseModel):
+    """What /api/truenas returns: the parsed pools and alerts, or why there are none."""
+
+    enabled: bool
+    fetched_at: datetime | None = None
+    error: str | None = None
+    pools: list[PoolInfo] = Field(default_factory=list)
+    alerts: list[AlertInfo] = Field(default_factory=list)
 
 
 class TrueNASService:
@@ -21,7 +34,7 @@ class TrueNASService:
         self._config_provider = config_provider
         self._clock = clock
         self._lock = asyncio.Lock()
-        self._cached: dict[str, int | str] | None = None
+        self._cached: PoolStatus | None = None
         self._cached_at: datetime | None = None
         self._last_error: str | None = None
         self._last_alerts: tuple[str, ...] = ()
@@ -31,10 +44,30 @@ class TrueNASService:
         return self._config_provider().truenas.is_enabled
 
     async def pool_status(self) -> dict[str, int | str]:
+        """The v1-compatible shape for dashboards."""
+        status = await self._fetch()
+        return dict(status.result) if status is not None else dict(DISABLED)
+
+    async def details(self) -> TrueNASDetails:
+        """The parsed pools and alerts for the UI, from the same cached query."""
+        status = await self._fetch()
+        if status is None:
+            return TrueNASDetails(enabled=False)
+        error = status.result.get("error")
+        return TrueNASDetails(
+            enabled=True,
+            fetched_at=self._cached_at,
+            error=str(error) if error is not None else None,
+            pools=list(status.pools),
+            alerts=list(status.alerts),
+        )
+
+    async def _fetch(self) -> PoolStatus | None:
+        """None when disabled; otherwise the cached or freshly queried status."""
         config = self._config_provider()
         truenas = config.truenas
         if not truenas.is_enabled or truenas.api_key is None:
-            return dict(DISABLED)
+            return None
         async with self._lock:
             now = self._clock.now()
             if (
@@ -42,7 +75,7 @@ class TrueNASService:
                 and self._cached_at is not None
                 and now - self._cached_at < timedelta(seconds=truenas.cache_seconds)
             ):
-                return dict(self._cached)
+                return self._cached
             client = TrueNASClient(
                 truenas.host or config.remote.host or "",
                 truenas.api_key.get_secret_value(),
@@ -51,8 +84,8 @@ class TrueNASService:
             )
             status = await asyncio.to_thread(client.query)
             self._log_transition(status)
-            self._cached, self._cached_at = status.result, now
-            return dict(status.result)
+            self._cached, self._cached_at = status, now
+            return status
 
     def _log_transition(self, status: PoolStatus) -> None:
         """Log errors and alerts when they change, not on every poll of the UI."""

@@ -1,5 +1,6 @@
 import json
 from collections.abc import Callable
+from datetime import UTC, datetime
 from typing import Any
 from unittest.mock import patch
 
@@ -35,10 +36,36 @@ def result_for_last_request(result: Any) -> Callable[[FakeWebSocket], str]:
 
 CONNECTED = json.dumps({"msg": "connected", "session": "abc123"})
 POOLS = [
-    {"id": 1, "name": "backup-disk-0", "status": "ONLINE", "free": int(3.42 * TIB)},
-    {"id": 3, "name": "backup-disk-1", "status": "DEGRADED", "free": int(0.5 * TIB)},
+    {
+        "id": 1,
+        "name": "backup-disk-0",
+        "status": "ONLINE",
+        "healthy": True,
+        "size": 7 * TIB,
+        "allocated": int(3.58 * TIB),
+        "free": int(3.42 * TIB),
+        "scan": {"state": "FINISHED", "end_time": {"$date": 1793145600000}, "errors": 0},
+    },
+    {
+        "id": 3,
+        "name": "backup-disk-1",
+        "status": "DEGRADED",
+        "healthy": False,
+        "size": 4 * TIB,
+        "allocated": int(3.5 * TIB),
+        "free": int(0.5 * TIB),
+        "scan": None,
+    },
 ]
-ALERTS = [{"id": "f1e2", "level": "WARNING", "formatted": "Pool backup-disk-1 state is DEGRADED"}]
+ALERTS = [
+    {
+        "id": "f1e2",
+        "level": "WARNING",
+        "formatted": "Pool backup-disk-1 state is DEGRADED",
+        "datetime": {"$date": 1793232000000},
+        "dismissed": False,
+    }
+]
 
 
 def client(**kwargs: Any) -> TrueNASClient:
@@ -60,6 +87,21 @@ def test_pool_status_keys_pools_by_name() -> None:
 
     assert status == {"alerts": 1, "backup-disk-0": "3.42 TB", "backup-disk-1": "0.5 TB"}
     assert full.alert_texts == ("Pool backup-disk-1 state is DEGRADED",)
+
+    first, second = full.pools
+    assert (first.alias, first.status, first.healthy, first.used_pct) == (
+        "backup-disk-0",
+        "ONLINE",
+        True,
+        51.1,
+    )
+    assert first.scrub_state == "FINISHED"
+    assert first.scrub_errors == 0
+    assert first.scrub_ended_at == datetime(2026, 10, 28, 0, 0, tzinfo=UTC)
+    assert (second.healthy, second.scrub_ended_at, second.used_pct) == (False, None, 87.5)
+    alert = full.alerts[0]
+    assert (alert.level, alert.rank, alert.dismissed) == ("WARNING", 3, False)
+    assert alert.since == datetime(2026, 10, 29, 0, 0, tzinfo=UTC)
     methods = [m["method"] for m in ws.sent if m["msg"] == "method"]
     assert methods == ["auth.login_with_api_key", "alert.list", "pool.query"]
     assert ws.sent[1]["params"] == ["1-testtoken"]
@@ -131,3 +173,24 @@ def test_tls_verification_is_passed_through() -> None:
         status = client(verify_tls=True).get_pool_status()
     assert "API key rejected" in str(status["error"])
     assert connect.call_args.kwargs["sslopt"]["cert_reqs"] == 2, "ssl.CERT_REQUIRED"
+
+
+def test_alerts_are_sorted_most_urgent_first() -> None:
+    alerts = [
+        {"level": "INFO", "formatted": "Updates are available"},
+        {"level": "CRITICAL", "formatted": "Pool faulted"},
+        {"level": "WARNING", "formatted": "Scrub overdue", "datetime": "2026-10-29T10:00:00Z"},
+    ]
+    ws = FakeWebSocket(
+        [
+            CONNECTED,
+            result_for_last_request(True),
+            result_for_last_request(alerts),
+            result_for_last_request([]),
+        ]
+    )
+    with patch("remotebackups.truenas.client.create_connection", return_value=ws):
+        full = client().query()
+    assert [a.level for a in full.alerts] == ["CRITICAL", "WARNING", "INFO"]
+    assert full.alerts[1].since == datetime(2026, 10, 29, 10, 0, tzinfo=UTC)
+    assert full.result == {"alerts": 3}

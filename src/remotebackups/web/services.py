@@ -10,6 +10,7 @@ from typing import Protocol
 
 from remotebackups.config import Config
 from remotebackups.sync import RunHistory, RunOptions, RunRecord, RunState, RunTrigger
+from remotebackups.truenas.service import TrueNASDetails
 
 
 class EngineLike(Protocol):
@@ -29,6 +30,8 @@ class TrueNASLike(Protocol):
     def enabled(self) -> bool: ...
 
     async def pool_status(self) -> dict[str, int | str]: ...
+
+    async def details(self) -> TrueNASDetails: ...
 
 
 class RemoteStatusLike(Protocol):

@@ -1,6 +1,8 @@
 from httpx import AsyncClient
 
 from remotebackups.sync import RunOutcome
+from remotebackups.truenas.models import AlertInfo, PoolInfo
+from remotebackups.truenas.service import TrueNASDetails
 from tests.web.conftest import Harness
 
 
@@ -181,6 +183,34 @@ async def test_pool_status_compat_shapes(client: AsyncClient, harness: Harness) 
     body = (await client.get("/api/pool_status")).json()
     assert body["sync_errors"] == 1
     assert body["error"].startswith("Failed to connect")
+
+
+async def test_truenas_details_endpoint(client: AsyncClient, harness: Harness) -> None:
+    assert (await client.get("/api/truenas")).json()["enabled"] is False
+
+    harness.truenas.enabled = True
+    harness.truenas.detail = TrueNASDetails(
+        enabled=True,
+        fetched_at=harness.clock.now(),
+        pools=[
+            PoolInfo(
+                name="backup-disk-0",
+                alias="disk-0",
+                status="ONLINE",
+                healthy=True,
+                size=1000,
+                allocated=850,
+                free=150,
+            )
+        ],
+        alerts=[AlertInfo(level="CRITICAL", text="Pool faulted")],
+    )
+    body = (await client.get("/api/truenas")).json()
+    assert body["enabled"] is True
+    assert body["pools"][0]["alias"] == "disk-0"
+    assert body["pools"][0]["used_pct"] == 85.0
+    assert body["alerts"][0]["rank"] == 5
+    assert body["fetched_at"] is not None
 
 
 async def test_healthz(client: AsyncClient, harness: Harness) -> None:

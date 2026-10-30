@@ -14,6 +14,7 @@ from remotebackups.sync import (
     RunTrigger,
     UnknownFolderError,
 )
+from remotebackups.truenas.service import TrueNASDetails
 from remotebackups.web.schemas import (
     FolderInfo,
     RemoteInfo,
@@ -198,6 +199,12 @@ async def effective_config(request: Request) -> dict[str, Any]:
     """The effective configuration with secrets masked."""
     result: dict[str, Any] = services(request).config_provider().model_dump(mode="json")
     return result
+
+
+@router.get("/truenas", response_model=TrueNASDetails)
+async def truenas_details(request: Request) -> TrueNASDetails:
+    """Pools with usage and health, and the current alerts, for the UI card."""
+    return await services(request).truenas.details()
 
 
 @router.get("/pool_status")

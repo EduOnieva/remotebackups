@@ -146,22 +146,84 @@ async function loadFolders() {
   } catch (e) { toast(e.message, true); }
 }
 
+const MAX_ALERTS_SHOWN = 5;
+
+function badge(text, cls) {
+  const span = document.createElement("span");
+  span.className = `badge ${cls}`;
+  span.textContent = text;
+  return span;
+}
+
+function renderPool(pool) {
+  const div = document.createElement("div");
+  div.className = "pool";
+  const head = document.createElement("div");
+  head.className = "pool-head";
+  const name = document.createElement("strong");
+  name.textContent = pool.alias;
+  const health = badge(pool.status, pool.healthy ? "ok" : "bad");
+  head.append(name, health);
+  const bar = document.createElement("div");
+  bar.className = `bar ${pool.used_pct >= 95 ? "bad-fill" : pool.used_pct >= 85 ? "warn-fill" : ""}`;
+  const fill = document.createElement("span");
+  fill.style.width = `${Math.min(100, pool.used_pct)}%`;
+  bar.appendChild(fill);
+  const detail = document.createElement("div");
+  detail.className = "muted small";
+  let text = `${pool.used_pct}% used · ${fmtBytes(pool.free)} free of ${fmtBytes(pool.size)}`;
+  if (pool.scrub_ended_at) {
+    const errors = pool.scrub_errors ? `${pool.scrub_errors} errors` : "no errors";
+    text += ` · last scrub ${fmtTime(pool.scrub_ended_at, false)}, ${errors}`;
+  }
+  detail.textContent = text;
+  div.append(head, bar, detail);
+  return div;
+}
+
+function renderAlert(alert) {
+  const div = document.createElement("div");
+  div.className = "alert";
+  const cls = alert.rank >= 4 ? "bad" : alert.rank >= 3 ? "warn-text" : "muted";
+  const text = document.createElement("span");
+  text.textContent = alert.text;
+  const when = document.createElement("span");
+  when.className = "when";
+  when.textContent = alert.since ? fmtTime(alert.since, false) : "";
+  div.append(badge(alert.level, cls), text, when);
+  return div;
+}
+
 async function loadTrueNAS() {
   if ($("truenas-card").hidden) return;
   truenasLoaded = true;
   try {
-    const data = await api("/api/pool_status");
-    const dl = $("truenas-list");
-    dl.innerHTML = "";
-    for (const [key, value] of Object.entries(data)) {
-      if (key === "sync_errors") continue;
-      const dt = document.createElement("dt"), dd = document.createElement("dd");
-      dt.textContent = key === "alerts" ? "Alerts" : key === "error" ? "Error" : `${key} free`;
-      dd.textContent = value;
-      if (key === "alerts" && value > 0) dd.className = "warn-text";
-      if (key === "error") dd.className = "bad";
-      dl.append(dt, dd);
+    const data = await api("/api/truenas");
+    const pools = $("truenas-pools"), alerts = $("truenas-alerts"), footer = $("truenas-footer");
+    pools.innerHTML = ""; alerts.innerHTML = "";
+    if (data.error) {
+      footer.textContent = data.error;
+      footer.className = "bad small";
+      return;
     }
+    footer.className = "muted small";
+    data.pools.forEach((pool) => pools.appendChild(renderPool(pool)));
+    const active = data.alerts.filter((a) => !a.dismissed);
+    if (!active.length) {
+      const none = document.createElement("div");
+      none.className = "muted small";
+      none.textContent = "No alerts";
+      alerts.appendChild(none);
+    } else {
+      active.slice(0, MAX_ALERTS_SHOWN).forEach((alert) => alerts.appendChild(renderAlert(alert)));
+      if (active.length > MAX_ALERTS_SHOWN) {
+        const more = document.createElement("div");
+        more.className = "muted small";
+        more.textContent = `and ${active.length - MAX_ALERTS_SHOWN} more`;
+        alerts.appendChild(more);
+      }
+    }
+    footer.textContent = data.fetched_at ? `as of ${fmtTime(data.fetched_at)}` : "";
   } catch (e) { toast(e.message, true); }
 }
 

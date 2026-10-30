@@ -10,6 +10,8 @@ from typing import Any
 
 from websocket import create_connection
 
+from remotebackups.truenas.models import AlertInfo, PoolInfo
+
 logger = logging.getLogger(__name__)
 
 TIB = 1024**4
@@ -17,10 +19,12 @@ TIB = 1024**4
 
 @dataclass(frozen=True)
 class PoolStatus:
-    """What one query produced: the API-shaped result plus the alert texts for logging."""
+    """What one query produced: the v1-shaped result plus the parsed details for the UI."""
 
     result: dict[str, int | str]
     alert_texts: tuple[str, ...] = field(default_factory=tuple)
+    pools: tuple[PoolInfo, ...] = field(default_factory=tuple)
+    alerts: tuple[AlertInfo, ...] = field(default_factory=tuple)
 
 
 class TrueNASClient:
@@ -73,13 +77,14 @@ class TrueNASClient:
                     logger.warning("Error closing TrueNAS WebSocket: %s", exc)
 
         result: dict[str, int | str] = {"alerts": len(alerts)}
-        texts = tuple(str(a.get("formatted", a.get("text", "unknown"))) for a in alerts)
-        for pool in pools:
+        parsed_alerts = tuple(
+            sorted((AlertInfo.from_api(a) for a in alerts), key=lambda a: -a.rank)
+        )
+        parsed_pools = tuple(PoolInfo.from_api(p, self._aliases) for p in pools)
+        for pool in parsed_pools:
             # Keyed by name (or its alias): TrueNAS ids are database rows that change on recreate
-            name = pool.get("name", "unknown")
-            free_tb = round(pool.get("free", 0) / TIB, 2)
-            result[self._aliases.get(name, name)] = f"{free_tb} TB"
-        return PoolStatus(result, texts)
+            result[pool.alias] = f"{round(pool.free / TIB, 2)} TB"
+        return PoolStatus(result, tuple(a.text for a in parsed_alerts), parsed_pools, parsed_alerts)
 
     def _call(self, ws: Any, method: str, params: list[Any] | None = None) -> Any:
         """One DDP method call; unrelated traffic (events, pongs, other ids) is skipped."""
