@@ -199,6 +199,15 @@ async function loadStatus() {
   try { renderStatus(await api("/api/status")); } catch (e) { toast(`Status unavailable: ${e.message}`, true); }
 }
 
+// Table cells are built from text nodes, never markup, so a value from the config or the
+// API can only ever be displayed
+function cell(text, cls = "") {
+  const td = document.createElement("td");
+  td.textContent = text;
+  if (cls) td.className = cls;
+  return td;
+}
+
 function renderRuns() {
   const body = $("runs").querySelector("tbody");
   body.innerHTML = "";
@@ -206,10 +215,22 @@ function renderRuns() {
     const tr = document.createElement("tr");
     tr.dataset.id = r.id;
     if (r.id === selectedRun) tr.classList.add("selected");
-    tr.innerHTML = `<td>${fmtTime(r.started_at)}</td><td>${r.trigger}${r.delete ? " + delete" : ""}</td>` +
-      `<td class="state-${r.outcome}">${label(r.outcome)}</td><td>${fmtDuration(r.duration_s)}</td>` +
-      `<td>${r.folders_ok}/${r.folders_total}${r.folders_failed ? ` <span class="bad">(${r.folders_failed} failed)</span>` : ""}</td>` +
-      `<td class="wide-only">${r.files_transferred}</td><td class="wide-only">${fmtBytes(r.bytes_sent)}</td>`;
+    const folders = cell(`${r.folders_ok}/${r.folders_total}`);
+    if (r.folders_failed) {
+      const failed = document.createElement("span");
+      failed.className = "bad";
+      failed.textContent = ` (${r.folders_failed} failed)`;
+      folders.appendChild(failed);
+    }
+    tr.append(
+      cell(fmtTime(r.started_at)),
+      cell(`${r.trigger}${r.delete ? " + delete" : ""}`),
+      cell(label(r.outcome), `state-${r.outcome}`),
+      cell(fmtDuration(r.duration_s)),
+      folders,
+      cell(r.files_transferred, "wide-only"),
+      cell(fmtBytes(r.bytes_sent), "wide-only"),
+    );
     tr.onclick = () => showRun(r.id);
     body.appendChild(tr);
   }
@@ -231,9 +252,9 @@ async function loadFolders() {
     body.innerHTML = "";
     for (const f of list) {
       const tr = document.createElement("tr");
-      tr.innerHTML = `<td>${f.name}</td><td class="path">${f.source}</td><td class="path">${f.destination}</td><td class="chips"></td>`;
+      const chips = cell("", "chips");
+      tr.append(cell(f.name), cell(f.source, "path"), cell(f.destination, "path"), chips);
       tr.style.cursor = "default";
-      const chips = tr.lastElementChild;
       if (!f.enabled) chips.appendChild(badge("disabled", "muted"));
       if (!f.source_exists) chips.appendChild(badge("source missing", "bad"));
       if (!f.allow_delete) chips.appendChild(badge("no delete", "muted"));

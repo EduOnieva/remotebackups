@@ -157,6 +157,12 @@ async def test_log_chunks_with_offsets(client: AsyncClient, harness: Harness) ->
     assert (await client.get("/api/runs/missing/log")).status_code == 404
 
 
+async def test_run_ids_outside_the_generated_format_are_not_found(client: AsyncClient) -> None:
+    for odd in ("missing", "20261030T083932Z-65d0.json", "..", "%2e%2e%2fconfig"):
+        assert (await client.get(f"/api/runs/{odd}/log")).status_code == 404
+        assert (await client.get(f"/api/runs/{odd}/log/download")).status_code == 404
+
+
 async def test_log_tail_starts_at_a_line_boundary(client: AsyncClient, harness: Harness) -> None:
     run = harness.finished_run()  # log is "line one\nline two\n", 18 bytes
 

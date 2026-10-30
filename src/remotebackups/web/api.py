@@ -1,5 +1,6 @@
 """The JSON API under /api."""
 
+import re
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
@@ -30,6 +31,7 @@ from remotebackups.web.sse import stream_run_log
 router = APIRouter(prefix="/api")
 
 MAX_LOG_CHUNK = 1024 * 1024
+RUN_ID = re.compile(r"\d{8}T\d{6}Z-[0-9a-f]{4}")
 
 
 def services(request: Request) -> Services:
@@ -51,6 +53,16 @@ def same_origin_json(request: Request) -> None:
 
 
 mutating = [Depends(same_origin_json)]
+
+
+def valid_run_id(run_id: str) -> str:
+    """Ids come from `new_run_id`; anything else is not a run, whatever the filesystem holds."""
+    if not RUN_ID.fullmatch(run_id):
+        raise HTTPException(404, f"run {run_id} not found")
+    return run_id
+
+
+RunId = Annotated[str, Depends(valid_run_id)]
 
 
 def _remote_info(svc: Services, remote: RemoteStatusLike) -> RemoteInfo:
@@ -157,7 +169,7 @@ async def clear_runs(request: Request) -> Response:
 
 
 @router.get("/runs/{run_id}", response_model=RunDetail)
-async def get_run(request: Request, run_id: str) -> RunDetail:
+async def get_run(request: Request, run_id: RunId) -> RunDetail:
     record = services(request).history.get(run_id)
     if record is None:
         raise HTTPException(404, f"run {run_id} not found")
@@ -167,7 +179,7 @@ async def get_run(request: Request, run_id: str) -> RunDetail:
 @router.get("/runs/{run_id}/log", response_class=PlainTextResponse)
 async def get_run_log(
     request: Request,
-    run_id: str,
+    run_id: RunId,
     offset: Annotated[int, Query(ge=0)] = 0,
     max_bytes: Annotated[int, Query(ge=1, le=MAX_LOG_CHUNK)] = 65536,
     tail: Annotated[int | None, Query(ge=1, le=MAX_LOG_CHUNK)] = None,
@@ -200,7 +212,7 @@ async def get_run_log(
 
 
 @router.get("/runs/{run_id}/log/download")
-async def download_run_log(request: Request, run_id: str) -> FileResponse:
+async def download_run_log(request: Request, run_id: RunId) -> FileResponse:
     """The whole log file, however large, as a download."""
     svc = services(request)
     if svc.history.get(run_id) is None:
@@ -212,7 +224,7 @@ async def download_run_log(request: Request, run_id: str) -> FileResponse:
 
 
 @router.get("/runs/{run_id}/log/stream")
-async def stream_log(request: Request, run_id: str) -> StreamingResponse:
+async def stream_log(request: Request, run_id: RunId) -> StreamingResponse:
     svc = services(request)
     if svc.history.get(run_id) is None:
         raise HTTPException(404, f"run {run_id} not found")
