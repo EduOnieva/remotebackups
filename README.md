@@ -35,7 +35,13 @@ through Tailscale, or a machine on your LAN.
    to type it. A key used only for these backups is the safer choice:
    `ssh-keygen -t ed25519 -N "" -f ~/.ssh/remotebackups`, then mount that file instead.
    Compose's own `secrets:` feature also lands files in `/run/secrets`, so
-   `secrets: {ssh_key: {file: ~/.ssh/id_ed25519}}` works without any other setting.
+   `secrets: {ssh_key: {file: /home/you/.ssh/id_ed25519}}` works without any other setting.
+
+   Write the host path of the key in full. Compose expands `~` to the home of whoever runs the
+   deploy, which is root under `sudo` or Portainer, and Docker turns a bind mount whose source
+   does not exist into an empty directory. The UI then reports
+   `No SSH key at /run/secrets/ssh_key`; `docker exec remotebackups ls -la /run/secrets` shows
+   the directory.
 
 2. Save a compose file next to it. For a destination you can reach directly:
 
@@ -50,7 +56,7 @@ through Tailscale, or a machine on your LAN.
          - "8080:8080"
        volumes:
          - ./config:/config
-         - ~/.ssh/id_ed25519:/run/secrets/ssh_key:ro
+         - /home/you/.ssh/id_ed25519:/run/secrets/ssh_key:ro
          - /srv/documents:/data/documents:ro
          - /srv/photos:/data/photos:ro
        environment:

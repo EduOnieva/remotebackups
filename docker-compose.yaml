@@ -16,7 +16,9 @@ services:
       - "8080:8080"
     volumes:
       - ./config:/config
-      - ~/.ssh/id_ed25519:/run/secrets/ssh_key:ro # your private key, read-only; never copied anywhere
+      # Absolute path: `~` would be root's home under sudo or Portainer, and a missing source
+      # silently becomes an empty directory in the container
+      - /home/you/.ssh/id_ed25519:/run/secrets/ssh_key:ro
       - /path/to/documents:/data/documents:ro
       - /path/to/photos:/data/photos:ro
     environment:
