@@ -18,6 +18,10 @@ let pendingLines = [];
 let flushTimer = null;
 let hiddenLines = 0;
 let logNotice = "";
+// Following is inferred from the scroll position, like most log viewers: at the bottom new
+// lines keep the view pinned there, scrolled up they count into the "jump to bottom" pill
+let following = true;
+let unseenLines = 0;
 
 async function api(path, options = {}) {
   const response = await fetch(path, { headers: { "Content-Type": "application/json" }, ...options });
@@ -262,6 +266,7 @@ function flushLines() {
     else if (text.includes("[WARN]")) span.className = "warn";
     fragment.appendChild(span);
   }
+  const added = pendingLines.length;
   pendingLines = [];
   log.appendChild(fragment);
   while (log.childElementCount > MAX_LOG_LINES) {
@@ -269,14 +274,35 @@ function flushLines() {
     hiddenLines++;
   }
   updateLogNotice();
-  if ($("follow").checked) log.scrollTop = log.scrollHeight;
+  if (following) {
+    log.scrollTop = log.scrollHeight;
+  } else {
+    unseenLines += added;
+    updateJump();
+  }
+}
+
+function updateJump() {
+  const jump = $("jump");
+  jump.hidden = following;
+  jump.textContent = unseenLines ? `${unseenLines} new lines · jump to bottom` : "Jump to bottom";
+}
+
+function onLogScroll() {
+  const log = $("log");
+  following = log.scrollHeight - log.scrollTop - log.clientHeight < 8;
+  if (following) unseenLines = 0;
+  updateJump();
 }
 
 function resetLog(runId, startedAt, live = false) {
   pendingLines = [];
   hiddenLines = 0;
   logNotice = "";
+  following = true;
+  unseenLines = 0;
   $("log").textContent = "";
+  updateJump();
   setLogTitle(runId, startedAt, live);
   updateLogNotice();
 }
@@ -348,6 +374,8 @@ async function clearHistory() {
 $("run").onclick = () => startRun(false);
 $("run-delete").onclick = () => startRun(true);
 $("stop").onclick = stopRun;
+$("log").addEventListener("scroll", onLogScroll);
+$("jump").onclick = () => { $("log").scrollTop = $("log").scrollHeight; };
 // The button sits inside a <summary>; without preventDefault the click would also fold the card
 $("clear").onclick = (e) => { e.preventDefault(); clearHistory(); };
 

@@ -50,12 +50,12 @@
     </section>
 
     <section class="card">
-      <div class="card-head">
-        <h2 id="log-title">Log</h2>
-        <label class="small"><input type="checkbox" id="follow" checked> follow</label>
-      </div>
+      <h2 id="log-title">Log</h2>
       <p id="log-notice" class="small muted" hidden></p>
-      <pre id="log" class="log">Select a run below or start one.</pre>
+      <div class="log-wrap">
+        <pre id="log" class="log">Select a run below or start one.</pre>
+        <button id="jump" class="pill" hidden>Jump to bottom</button>
+      </div>
     </section>
 
     <details class="card" id="runs-card">

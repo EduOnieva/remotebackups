@@ -41,6 +41,8 @@ button.ghost { background: transparent; }
 .log .err { color: #ff7b72; }
 .log .warn { color: #e3b341; }
 #log-notice { margin: 0 0 8px; }
+.log-wrap { position: relative; }
+.pill { position: absolute; right: 24px; bottom: 12px; background: var(--accent); color: #fff; border: none; border-radius: 999px; padding: 6px 12px; font-size: 13px; box-shadow: 0 4px 16px rgba(0,0,0,.35); }
 .pool { margin-bottom: 10px; }
 .pool-head { display: flex; justify-content: space-between; gap: 8px; font-size: 14px; }
 .pool-head .muted { font-size: 13px; }
