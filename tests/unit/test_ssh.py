@@ -61,6 +61,20 @@ class TestPrepare:
         assert "  BatchMode yes\n" in config
         assert paths.known_hosts.exists()
 
+    def test_runtime_files_are_swapped_in_whole_never_truncated(
+        self, paths: ConfigPaths, ssh_key: Path, fake_bin: FakeBinaries
+    ) -> None:
+        first = SshSetup(paths, remote()).prepare()
+        key_inode = (paths.runtime_ssh_dir / "key").stat().st_ino
+        config_inode = first.config_path.stat().st_ino
+
+        second = SshSetup(paths, remote()).prepare()
+
+        # A new inode each time: an ssh that opened the old file keeps reading a complete one
+        assert (paths.runtime_ssh_dir / "key").stat().st_ino != key_inode
+        assert second.config_path.stat().st_ino != config_inode
+        assert not list(paths.runtime_ssh_dir.glob("*.tmp"))
+
     def test_key_is_checked_on_the_private_copy_not_the_mounted_file(
         self, paths: ConfigPaths, ssh_key: Path, fake_bin: FakeBinaries, tmp_path: Path
     ) -> None:

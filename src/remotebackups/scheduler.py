@@ -1,8 +1,8 @@
 """Fire scheduled runs from the cron expression in the configuration.
 
-The expression is re-read every time the next run is computed, so editing it in
-config.yaml takes effect without a restart. Sleeping happens in short chunks: if the host
-suspends past a due time, the run fires once on wake instead of being lost or repeated.
+The expression is re-read every minute while waiting, so editing it in config.yaml moves
+the next run without a restart. Sleeping happens in short chunks: if the host suspends past
+a due time, the run fires once on wake instead of being lost or repeated.
 """
 
 import asyncio
@@ -43,6 +43,8 @@ class CronScheduler:
         self._clock = clock
         self._next: datetime | None = None
         self._task: asyncio.Task[None] | None = None
+        # The last configuration problem logged, so a broken file is reported once, not every minute
+        self._config_problem: str | None = None
 
     @property
     def next_run_at(self) -> datetime | None:
@@ -65,26 +67,43 @@ class CronScheduler:
         self._task = None
 
     async def run(self) -> None:
+        pending: tuple[str, datetime] | None = None  # the cron expression and the due time it gave
         while True:
-            due = self._compute_next()
-            self._next = due
-            if due is None:
+            cron = self._read_cron()
+            if cron is None:
+                pending = self._next = None
                 await self._clock.sleep(IDLE_POLL_SECONDS)
                 continue
-            while (remaining := (due - self._clock.now()).total_seconds()) > 0:
+            # Recomputed only when the expression changes: croniter looks strictly after "now",
+            # so recomputing at the due instant itself would skip that run
+            if pending is None or pending[0] != cron:
+                pending = (cron, self._next_after(cron, self._clock.now()))
+            due = self._next = pending[1]
+            remaining = (due - self._clock.now()).total_seconds()
+            if remaining > 0:
                 await self._clock.sleep(min(remaining, CHUNK_SECONDS))
+                continue
             await self._fire()
+            pending = None
 
-    def _compute_next(self) -> datetime | None:
+    def _read_cron(self) -> str | None:
+        """The current expression, or None when scheduling is off or the file is broken."""
         try:
             cron = self._config_provider().schedule.cron
         except ConfigError as exc:
-            logger.error("Scheduler cannot read the configuration, retrying later: %s", exc)
+            if str(exc) != self._config_problem:
+                logger.error(
+                    "Scheduler cannot read the configuration, retrying every minute: %s", exc
+                )
+                self._config_problem = str(exc)
             return None
-        if cron is None:
-            return None
-        now = self._clock.now().astimezone(self._tz)
-        result: datetime = croniter(cron, now).get_next(datetime)
+        if self._config_problem is not None:
+            logger.info("Scheduler can read the configuration again")
+            self._config_problem = None
+        return cron
+
+    def _next_after(self, cron: str, now: datetime) -> datetime:
+        result: datetime = croniter(cron, now.astimezone(self._tz)).get_next(datetime)
         return result
 
     async def _fire(self) -> None:

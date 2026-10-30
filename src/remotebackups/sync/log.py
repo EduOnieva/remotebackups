@@ -32,11 +32,12 @@ class RunLog:
         self._file.close()
 
     def _write(self, text: str, *, bypass_cap: bool) -> None:
-        if not bypass_cap and self._size + len(text) > self._max_bytes:
+        encoded = text.encode("utf-8")
+        if not bypass_cap and self._size + len(encoded) > self._max_bytes:
             self.lines_dropped += 1
             if not self._capped:
                 self._capped = True
                 self.event("WARN", CAP_MESSAGE)
             return
         self._file.write(text)
-        self._size += len(text.encode("utf-8"))
+        self._size += len(encoded)

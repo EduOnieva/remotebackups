@@ -162,19 +162,50 @@ async def test_schedule_changes_are_picked_up_without_restart(
     assert engine.fired_at[1] == datetime(2026, 10, 30, 11, 0, tzinfo=UTC), "12:00 CET"
 
 
-async def test_invalid_configuration_is_logged_and_retried(
-    clock: FakeClock, caplog: pytest.LogCaptureFixture
+async def test_cron_edited_while_waiting_moves_the_next_run(
+    clock: FakeClock, make_config: Callable[..., Config]
 ) -> None:
-    def broken() -> Config:
-        raise ConfigError(["folders[0].source: source must be an absolute path"])
+    configs = [make_config(schedule={"cron": "30 1 * * *"})]
+    engine = FakeEngine(clock)
+    clock.limit = clock.now()
+    scheduler = CronScheduler(lambda: configs[-1], MADRID, engine, clock)
+    await run_until(scheduler, lambda: scheduler.next_run_at is not None)
+    assert scheduler.next_run_at == datetime(2026, 10, 30, 1, 30, tzinfo=MADRID)
+
+    # The file now says 14:00 today, well before the 01:30 the scheduler was waiting for
+    configs.append(make_config(schedule={"cron": "0 14 * * *"}))
+    clock.limit = datetime(2026, 10, 29, 12, 2, tzinfo=UTC)
+    await run_until(
+        scheduler, lambda: scheduler.next_run_at == datetime(2026, 10, 29, 14, 0, tzinfo=MADRID)
+    )
+
+    clock.limit = datetime(2026, 10, 29, 13, 1, tzinfo=UTC)
+    await run_until(scheduler, lambda: len(engine.calls) == 1)
+    assert engine.fired_at == [datetime(2026, 10, 29, 13, 0, tzinfo=UTC)], "14:00 CET"
+
+
+async def test_invalid_configuration_is_logged_once_and_retried(
+    clock: FakeClock, make_config: Callable[..., Config], caplog: pytest.LogCaptureFixture
+) -> None:
+    broken = True
+
+    def provider() -> Config:
+        if broken:
+            raise ConfigError(["folders[0].source: source must be an absolute path"])
+        return make_config(schedule={"cron": "30 1 * * *"})
 
     engine = FakeEngine(clock)
     deadline = clock.now() + timedelta(minutes=5)
     clock.limit = deadline
-    scheduler = CronScheduler(broken, MADRID, engine, clock)
-    with caplog.at_level(logging.ERROR, logger="remotebackups.scheduler"):
+    scheduler = CronScheduler(provider, MADRID, engine, clock)
+    with caplog.at_level(logging.INFO, logger="remotebackups.scheduler"):
         await run_until(scheduler, lambda: clock.now() >= deadline)
+        assert scheduler.next_run_at is None
+        assert engine.calls == []
 
-    assert "Scheduler cannot read the configuration" in caplog.text
-    assert scheduler.next_run_at is None
-    assert engine.calls == []
+        broken = False
+        clock.limit = deadline + timedelta(minutes=2)
+        await run_until(scheduler, lambda: scheduler.next_run_at is not None)
+
+    assert caplog.text.count("Scheduler cannot read the configuration") == 1, "five polls, one line"
+    assert "Scheduler can read the configuration again" in caplog.text

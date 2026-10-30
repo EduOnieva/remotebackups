@@ -8,7 +8,6 @@ import asyncio
 import logging
 import os
 import re
-import shutil
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -100,16 +99,14 @@ class SshSetup:
             runtime_key = self._paths.runtime_ssh_dir / "key"
             # Bind-mounted keys often arrive world-readable or with another owner; ssh refuses
             # them, so every check and every run uses this private copy instead
-            shutil.copyfile(key, runtime_key)
-            runtime_key.chmod(0o600)
+            _replace_private(runtime_key, key.read_bytes())
             self.check_key(runtime_key)
         self._paths.known_hosts.touch(mode=0o600, exist_ok=True)
         if self._remote.host_key:
             self._pin_host_key(self._remote.host_key)
 
         config_path = self._paths.runtime_ssh_dir / "config"
-        config_path.write_text(self._render_config(runtime_key), encoding="utf-8")
-        config_path.chmod(0o600)
+        _replace_private(config_path, self._render_config(runtime_key).encode("utf-8"))
         return SshRuntime(config_path=config_path, password=self.password)
 
     async def probe(self, runtime: SshRuntime, timeout_seconds: float = 20) -> ProbeResult:
@@ -183,7 +180,8 @@ class SshSetup:
         existing = self._paths.known_hosts.read_text(encoding="utf-8")
         if line not in existing:
             kept = [entry for entry in existing.splitlines() if not entry.startswith(marker + " ")]
-            self._paths.known_hosts.write_text("\n".join([*kept, line.rstrip("\n")]) + "\n")
+            content = "\n".join([*kept, line.rstrip("\n")]) + "\n"
+            _replace_private(self._paths.known_hosts, content.encode("utf-8"))
 
 
 def explain_ssh_failure(stderr_lines: list[str], known_hosts: Path) -> str:
@@ -196,6 +194,18 @@ def explain_ssh_failure(stderr_lines: list[str], known_hosts: Path) -> str:
         )
     meaningful = [line for line in stderr_lines if line.strip()]
     return meaningful[-1] if meaningful else "ssh exited with an error and no message"
+
+
+def _replace_private(path: Path, content: bytes) -> None:
+    """Swap the file in atomically with mode 0600.
+
+    The probe rewrites these files every few minutes while a run may be spawning an ssh per
+    folder; a truncate-then-write could hand that ssh a half-written key or config.
+    """
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_bytes(content)
+    tmp.chmod(0o600)
+    tmp.replace(path)
 
 
 async def _kill(process: asyncio.subprocess.Process) -> None:

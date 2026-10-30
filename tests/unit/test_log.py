@@ -27,3 +27,13 @@ def test_cap_drops_output_but_never_events(tmp_path: Path, clock: FakeClock) -> 
     assert text.count(CAP_MESSAGE) == 1
     assert "[INFO] finished" in text
     assert log.lines_dropped == 9
+
+
+def test_cap_counts_bytes_not_characters(tmp_path: Path, clock: FakeClock) -> None:
+    log = RunLog(tmp_path / "run.log", max_bytes=12, now=clock.now)
+    log.output("ééééé")  # five characters, ten bytes, plus the newline
+    log.output("é")
+    log.close()
+
+    assert (tmp_path / "run.log").read_text().count("é") == 5
+    assert log.lines_dropped == 1
