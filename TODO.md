@@ -12,6 +12,8 @@ the changelog.
 - Document `FILE__TRUENAS_API_KEY` with a secret file as the recommended way to pass the
   TrueNAS key, since a plain environment variable is readable through `docker inspect`.
 - Complete the GitHub wiki.
+- Reorder the README so it reads top-down for a newcomer, and give the screenshots
+  captions or labels instead of bare images.
 
 ## Ideas
 
