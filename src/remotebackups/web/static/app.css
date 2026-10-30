@@ -13,9 +13,11 @@ h1 { font-size: 20px; margin: 0; }
 h2 { font-size: 15px; margin: 0 0 10px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
 main { padding: 16px 24px 48px; max-width: 1600px; margin: 0 auto; display: grid; gap: 16px; }
 .cards { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+/* Grid items default to min-width:auto, so a wide table would stretch the page instead of scrolling */
+main > *, .cards > * { min-width: 0; }
 .card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
-.card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.card-head h2 { margin: 0; }
+.card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.card-head h2 { margin: 0; min-width: 0; overflow-wrap: anywhere; }
 summary.card-head { cursor: pointer; list-style: none; user-select: none; }
 summary.card-head::-webkit-details-marker { display: none; }
 summary.card-head h2::before { content: "\25B8"; display: inline-block; width: 1em; transition: transform .15s; }
@@ -47,10 +49,11 @@ button.ghost { background: transparent; }
 .bar.warn-fill span { background: var(--warn); }
 .bar.bad-fill span { background: var(--danger); }
 .badge { display: inline-block; font-size: 11px; font-weight: 600; letter-spacing: .03em; padding: 1px 6px; border-radius: 999px; border: 1px solid currentColor; }
-.alert { display: flex; gap: 8px; align-items: baseline; font-size: 13px; margin: 6px 0; }
+.alert { display: grid; grid-template-columns: auto 1fr auto; gap: 4px 8px; align-items: baseline; font-size: 13px; margin: 6px 0; }
 .alert .when { color: var(--muted); white-space: nowrap; }
 #truenas-error { margin: 8px 0 0; }
 #log-notice a { color: var(--accent); }
+.table-wrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; font-size: 14px; }
 th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--border); white-space: nowrap; }
 td.path { white-space: normal; word-break: break-all; color: var(--muted); }
@@ -63,3 +66,21 @@ tbody tr.selected { background: color-mix(in srgb, var(--accent) 16%, transparen
 .state-failed, .state-cancelled, .state-aborted, .bad { color: var(--danger); }
 #toast { position: fixed; right: 20px; top: 20px; background: var(--card); border: 1px solid var(--border); border-left: 4px solid var(--accent); padding: 10px 14px; border-radius: 6px; box-shadow: 0 6px 24px rgba(0,0,0,.25); max-width: 420px; }
 #toast.bad { border-left-color: var(--danger); }
+
+@media (max-width: 640px) {
+  header { padding: 12px 16px; }
+  main { padding: 12px 16px 32px; gap: 12px; }
+  .card { padding: 12px; }
+  .actions { width: 100%; }
+  .actions button { flex: 1; }
+  .big { font-size: 19px; overflow-wrap: anywhere; }
+  dd { white-space: normal; }
+  .log { max-height: 60vh; font-size: 12px; }
+  /* Files and bytes are in the log anyway; five columns is what fits without scrolling */
+  .wide-only { display: none; }
+  th, td { padding: 8px 4px; }
+  /* Date goes under the alert text instead of squeezing it into a narrow column */
+  .alert { grid-template-columns: auto 1fr; }
+  .alert .when { grid-column: 2; }
+  #toast { left: 16px; right: 16px; max-width: none; }
+}

@@ -125,7 +125,7 @@ function renderRuns() {
     tr.innerHTML = `<td>${fmtTime(r.started_at)}</td><td>${r.trigger}${r.delete ? " + delete" : ""}</td>` +
       `<td class="state-${r.outcome}">${label(r.outcome)}</td><td>${fmtDuration(r.duration_s)}</td>` +
       `<td>${r.folders_ok}/${r.folders_total}${r.folders_failed ? ` <span class="bad">(${r.folders_failed} failed)</span>` : ""}</td>` +
-      `<td>${r.files_transferred}</td><td>${fmtBytes(r.bytes_sent)}</td>`;
+      `<td class="wide-only">${r.files_transferred}</td><td class="wide-only">${fmtBytes(r.bytes_sent)}</td>`;
     tr.onclick = () => showRun(r.id);
     body.appendChild(tr);
   }

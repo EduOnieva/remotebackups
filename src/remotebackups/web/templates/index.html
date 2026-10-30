@@ -63,20 +63,24 @@
         <h2>Runs</h2>
         <button id="clear" class="ghost small">Clear history</button>
       </summary>
-      <table id="runs">
-        <thead>
-          <tr><th>Started</th><th>Trigger</th><th>Outcome</th><th>Duration</th><th>Folders</th><th>Files</th><th>Sent</th></tr>
-        </thead>
-        <tbody></tbody>
-      </table>
+      <div class="table-wrap">
+        <table id="runs">
+          <thead>
+            <tr><th>Started</th><th>Trigger</th><th>Outcome</th><th>Duration</th><th>Folders</th><th class="wide-only">Files</th><th class="wide-only">Sent</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
     </details>
 
     <details class="card" id="folders-card" open>
       <summary class="card-head"><h2>Folders</h2></summary>
-      <table id="folders">
-        <thead><tr><th>Name</th><th>Source</th><th>Destination</th><th>Notes</th></tr></thead>
-        <tbody></tbody>
-      </table>
+      <div class="table-wrap">
+        <table id="folders">
+          <thead><tr><th>Name</th><th>Source</th><th>Destination</th><th>Notes</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
     </details>
   </main>
 
