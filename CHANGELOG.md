@@ -1,6 +1,6 @@
 # Changelog
 
-## 2.0.0 (unreleased)
+## 2.0.0 - 2026-10-30
 
 A rewrite of rsync-tailscale-docker as **remotebackups**: one Python application replaces
 the bash sync script, busybox cron and the stdlib web server.
