@@ -10,21 +10,21 @@
 body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.45 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
 header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 24px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
 h1 { font-size: 20px; margin: 0; }
-h2 { font-size: 15px; margin: 0 0 10px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+h2 { font-size: 15px; margin: 0 0 8px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
 main { padding: 16px 24px 48px; max-width: 1600px; margin: 0 auto; display: grid; gap: 16px; }
 .cards { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
 /* Grid items default to min-width:auto, so a wide table would stretch the page instead of scrolling */
 main > *, .cards > * { min-width: 0; }
-.card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
+.card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; }
 .card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .card-head h2 { margin: 0; min-width: 0; overflow-wrap: anywhere; }
-.card-head:not(summary) { margin-bottom: 10px; }
+.card-head:not(summary) { margin-bottom: 8px; }
 summary.card-head { cursor: pointer; list-style: none; user-select: none; }
 summary.card-head::-webkit-details-marker { display: none; }
 summary.card-head h2::before { content: "\25B8"; display: inline-block; width: 1em; transition: transform .15s; }
 details[open] > summary.card-head h2::before { transform: rotate(90deg); }
-details[open] > summary.card-head { margin-bottom: 10px; }
-.big { font-size: 22px; font-weight: 600; margin: 0 0 8px; }
+details[open] > summary.card-head { margin-bottom: 8px; }
+.big { font-size: 22px; font-weight: 600; margin: 0 0 6px; }
 .bar.progress-fill span { background: var(--accent); }
 .muted { color: var(--muted); font-weight: 400; }
 .small { font-size: 13px; }
@@ -51,7 +51,8 @@ button.ghost { background: transparent; }
 #log-notice { margin: 0 0 8px; }
 .log-wrap { position: relative; }
 .pill { position: absolute; right: 24px; bottom: 12px; background: var(--accent); color: #fff; border: none; border-radius: 999px; padding: 6px 12px; font-size: 13px; box-shadow: 0 4px 16px rgba(0,0,0,.35); }
-.pool { margin-bottom: 10px; }
+.pool { margin-bottom: 8px; }
+.pool:last-child { margin-bottom: 0; }
 .pool-head { display: flex; justify-content: space-between; gap: 8px; font-size: 14px; }
 .pool-head .muted { font-size: 13px; }
 .bar { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; margin: 4px 0; }
@@ -73,7 +74,11 @@ details.fold[open] > summary { margin-bottom: 6px; }
 #run-folders tbody tr:hover { background: none; }
 td.note { white-space: normal; overflow-wrap: anywhere; color: var(--muted); }
 table { width: 100%; border-collapse: collapse; font-size: 14px; }
-th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+th, td { text-align: left; padding: 6px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+/* The card's own padding closes the table; a rule under the last row would double it */
+tbody tr:last-child td { border-bottom: none; }
+/* Numbers right-aligned with equal-width digits, so sizes and counts compare down a column */
+th.num, td.num { text-align: right; font-variant-numeric: tabular-nums; }
 td.path { white-space: normal; word-break: break-all; color: var(--muted); }
 td.chips .badge + .badge { margin-left: 6px; }
 th.row-actions, td.row-actions { text-align: center; width: 1%; white-space: nowrap; }
@@ -101,6 +106,6 @@ tbody tr.selected { background: color-mix(in srgb, var(--accent) 16%, transparen
   .log { max-height: 60vh; font-size: 12px; }
   /* Files and bytes are in the log anyway; five columns is what fits without scrolling */
   .wide-only { display: none; }
-  th, td { padding: 8px 4px; }
+  th, td { padding: 6px 4px; }
   #toast { left: 16px; right: 16px; max-width: none; }
 }

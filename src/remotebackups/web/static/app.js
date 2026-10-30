@@ -236,7 +236,7 @@ function renderRuns() {
     const tr = document.createElement("tr");
     tr.dataset.id = r.id;
     if (r.id === selectedRun) tr.classList.add("selected");
-    const folders = cell(`${r.folders_ok}/${r.folders_total}`);
+    const folders = cell(`${r.folders_ok}/${r.folders_total}`, "num");
     if (r.folders_failed) {
       const failed = document.createElement("span");
       failed.className = "bad";
@@ -247,10 +247,10 @@ function renderRuns() {
       cell(fmtTime(r.started_at)),
       cell(runKind(r, " + ")),
       cell(label(r.outcome), `state-${r.outcome}`),
-      cell(fmtDuration(r.duration_s)),
+      cell(fmtDuration(r.duration_s), "num"),
       folders,
-      cell(r.files_transferred, "wide-only"),
-      cell(fmtBytes(r.bytes_sent), "wide-only"),
+      cell(r.files_transferred, "wide-only num"),
+      cell(fmtBytes(r.bytes_sent), "wide-only num"),
     );
     tr.onclick = () => { pinned = true; showRun(r.id); };
     body.appendChild(tr);
@@ -269,9 +269,9 @@ function renderRunFolders(detail) {
     tr.append(
       cell(f.name),
       cell(f.status, FOLDER_STATUS_CLASS[f.status] || "muted"),
-      cell(fmtDuration(f.duration_s)),
-      cell(f.stats ? f.stats.files_transferred : "–", "wide-only"),
-      cell(f.stats ? fmtBytes(f.stats.bytes_sent) : "–", "wide-only"),
+      cell(fmtDuration(f.duration_s), "num"),
+      cell(f.stats ? f.stats.files_transferred : "–", "wide-only num"),
+      cell(f.stats ? fmtBytes(f.stats.bytes_sent) : "–", "wide-only num"),
       cell(f.message || "", "note"),
     );
     body.appendChild(tr);
