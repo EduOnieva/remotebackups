@@ -231,9 +231,12 @@ async function loadFolders() {
     body.innerHTML = "";
     for (const f of list) {
       const tr = document.createElement("tr");
-      const note = !f.enabled ? '<span class="muted">disabled</span>' : !f.source_exists ? '<span class="bad">source missing</span>' : f.allow_delete ? "" : '<span class="muted">no delete</span>';
-      tr.innerHTML = `<td>${f.name}</td><td class="path">${f.source}</td><td class="path">${f.destination}</td><td>${note}</td>`;
+      tr.innerHTML = `<td>${f.name}</td><td class="path">${f.source}</td><td class="path">${f.destination}</td><td class="chips"></td>`;
       tr.style.cursor = "default";
+      const chips = tr.lastElementChild;
+      if (!f.enabled) chips.appendChild(badge("disabled", "muted"));
+      if (!f.source_exists) chips.appendChild(badge("source missing", "bad"));
+      if (!f.allow_delete) chips.appendChild(badge("no delete", "muted"));
       body.appendChild(tr);
     }
   } catch (e) { toast(e.message, true); }
