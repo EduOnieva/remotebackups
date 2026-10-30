@@ -23,7 +23,9 @@ through Tailscale, or a machine on your LAN.
 - **TrueNAS SCALE aware.** Optional card with each pool's usage, health and last scrub plus the
   current alerts, from the TrueNAS API; `/api/pool_status` keeps the v1 shape for dashboards.
 
-![The dashboard after a week of runs: status, remote and TrueNAS cards, the last run's log, the run history and the folders](docs/screenshots/overview.png)
+![The dashboard](docs/screenshots/overview.png)
+
+*The dashboard after a week of runs: status, destination and TrueNAS cards, the last run's log, the run history and the folders with their Run and Pause buttons.*
 
 ## Quick start
 
@@ -88,6 +90,33 @@ through Tailscale, or a machine on your LAN.
    ```
 
 4. Open `http://<host>:8080`, press **Run**, watch the log.
+
+## The web UI
+
+The page shows the current state with progress during a run, the last and next run, whether
+the destination is reachable (with a **Check now** button), the TrueNAS card when enabled, the
+log of the selected run with a folded table of what happened to each of its folders, and the history
+of runs and the configured folders in two cards that fold. The log follows new lines while you
+are at the bottom and offers a "jump to bottom" pill when you scroll up; the file name in its
+title downloads the whole file. A run you selected stays on screen when a scheduled run
+starts; click the new run to follow it. Buttons: **Run**, **Run with delete**, **Dry run**,
+**Stop**, **Clear history**. The layout works on a phone.
+
+Each row of the Folders card has two buttons. **Run** backs up that folder alone, as a
+plain manual run; the Runs table names the folder. **Pause** makes runs skip the folder
+until the container restarts, which forgets every pause, and the card says so while any
+folder is paused; the button then reads **Resume**. The permanent switch stays in
+`config.yaml` (`enabled: false`); a folder disabled there has no buttons, since it cannot be
+turned on from the UI. Pausing is refused while a run is active, since it could only apply
+to the next one.
+
+![A run in progress](docs/screenshots/running.png)
+
+*A run in progress: the Status card shows the folder being copied and the elapsed time, the log streams live.*
+
+<img src="docs/screenshots/phone.png" width="360" alt="The page on a phone">
+
+*On a phone: the same page, one column, with the paths folded away so the Run and Pause buttons stay in reach.*
 
 ## Configuration
 
@@ -183,28 +212,7 @@ rsync -a -v -z --partial --stats --no-owner --no-group [--delete] [--dry-run] [-
 - Only one run at a time. A second start is refused, and a scheduled run that finds another
   run active is skipped with a warning.
 
-## The web UI and API
-
-The page shows the current state with progress during a run, the last and next run, whether
-the destination is reachable (with a **Check now** button), the TrueNAS card when enabled, the
-log of the selected run with a folded table of what happened to each of its folders, and the history
-of runs and the configured folders in two cards that fold. The log follows new lines while you
-are at the bottom and offers a "jump to bottom" pill when you scroll up; the file name in its
-title downloads the whole file. A run you selected stays on screen when a scheduled run
-starts; click the new run to follow it. Buttons: **Run**, **Run with delete**, **Dry run**,
-**Stop**, **Clear history**. The layout works on a phone.
-
-Each row of the Folders card has two buttons. **Run** backs up that folder alone, as a
-plain manual run; the Runs table names the folder. **Pause** makes runs skip the folder
-until the container restarts, which forgets every pause, and the card says so while any
-folder is paused; the button then reads **Resume**. The permanent switch stays in
-`config.yaml` (`enabled: false`); a folder disabled there has no buttons, since it cannot be
-turned on from the UI. Pausing is refused while a run is active, since it could only apply
-to the next one.
-
-![A run in progress: progress bar, current folder and the live log](docs/screenshots/running.png)
-
-<img src="docs/screenshots/phone.png" width="360" alt="The same page on a phone">
+## API
 
 | Endpoint | What it returns |
 |---|---|

@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+- Denser cards, and the Status, Note and Notes columns of the folder tables are centred.
+- The toast is centred at the top of the page instead of covering the Run buttons.
+- The README reads top-down for a newcomer, links the GitHub repository and captions its screenshots.
+
+### Fixed
+- The fold triangle of an open card sat higher than its title.
+
 ## 2.1 - 2026-10-30
 
 ### Added
