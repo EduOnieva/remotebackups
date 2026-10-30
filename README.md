@@ -251,8 +251,9 @@ renamed with `TRUENAS_POOL_ALIASES` so dashboards keep stable keys.
 - **Changed destination host key.** With the default `tofu` policy a changed key fails the
   connection and the status says so. If the server was reinstalled, delete its line from
   `config/ssh/known_hosts`.
-- **Updating.** `docker compose pull && docker compose up -d`. Tags: `latest` and `X.Y.Z`
-  for releases, `develop` for the current main branch, on Docker Hub
+- **Updating.** `docker compose pull && docker compose up -d`. Image tags follow the
+  branches: `latest` is `main`, which moves at releases; `2.1` pins a release and `2` its
+  newest; `develop` is the `develop` branch, where changes land first. On Docker Hub
   (`eduonieva/remotebackups`) and GHCR (`ghcr.io/eduonieva/remotebackups`), for amd64 and arm64.
 - **CLI.** `docker exec remotebackups remotebackups check-config | print-config --redact |
   print-example-config | run-once [--delete] [--dry-run] [--folder NAME]`. After an upgrade,
@@ -285,6 +286,10 @@ make test-integration  # real sshd + the image under test, then a docker stop mi
 Unit tests drive fake `rsync`, `ssh`, `ssh-keygen` and `sshpass` binaries, so they run
 anywhere in a few seconds. The integration stack in `compose/` is what CI runs before an
 image is published.
+
+Work happens on the `develop` branch, which publishes the `develop` image on every push.
+A release merges `develop` into `main`, which publishes `latest`, and tags it `vX.Y`, which
+publishes the numbered images. Versions have two parts: after 2.1 comes 2.2.
 
 ## Acknowledgements
 

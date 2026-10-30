@@ -1,6 +1,6 @@
 # Changelog
 
-## 2.1.0 - 2026-10-30
+## 2.1 - 2026-10-30
 
 ### Added
 - Dry run: a checkbox in the UI, `dry_run` in `POST /api/runs` and `run-once --dry-run` pass `--dry-run` to rsync so Run and Run with delete can be previewed.
