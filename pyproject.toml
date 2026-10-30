@@ -1,6 +1,6 @@
 [project]
 name = "remotebackups"
-version = "2.2"
+version = "2.3"
 description = "Scheduled rsync backups of home-server folders to another host, with a web UI"
 readme = "README.md"
 license = "MIT"
