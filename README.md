@@ -185,6 +185,7 @@ runs and the configured folders. Buttons: **Run**, **Run with delete**, **Stop**
 | `GET /api/folders` | The configured folders and whether each source exists |
 | `POST /api/runs` | Start a run; body `{"delete": false, "folders": ["documents"]}` is optional. 409 while a run is active |
 | `POST /api/runs/current/cancel` | Stop the active run |
+| `POST /api/remote/check` | Probe the SSH login now instead of waiting for the periodic check |
 | `GET /api/runs?limit=20` | Run history, newest first |
 | `GET /api/runs/{id}` | One run with its per-folder results and rsync statistics |
 | `GET /api/runs/{id}/log?offset=0` | The log as text, in chunks |
@@ -196,6 +197,9 @@ runs and the configured folders. Buttons: **Run**, **Run with delete**, **Stop**
 
 The UI has no login. Keep it where only you can reach it: on your tailnet (the Tailscale
 compose file does exactly that), on your LAN, or behind your reverse proxy's authentication.
+`POST` and `DELETE` calls must carry `Content-Type: application/json` and come from the same
+origin, so a page on another site cannot start or stop a run through your browser; from a
+script, add the header: `curl -X POST -H 'Content-Type: application/json' host:8080/api/runs`.
 
 ## Networking
 

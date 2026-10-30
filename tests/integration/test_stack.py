@@ -157,7 +157,7 @@ def test_stop_cancels_the_run_and_a_rerun_finishes(app: httpx.Client) -> None:
     time.sleep(2)
 
     cancelled_at = time.monotonic()
-    response = app.post("/api/runs/current/cancel")
+    response = app.post("/api/runs/current/cancel", json={})
     assert response.status_code == 202
     wait_until(lambda: outcome(app, run_id) != "running", 15, "the cancelled run to close")
     record = run_record(app, run_id)
@@ -178,7 +178,7 @@ def test_second_start_during_a_run_is_refused(app: httpx.Client) -> None:
     assert first.status_code == 202
     second = app.post("/api/runs", json={})
     assert second.status_code == 409
-    app.post("/api/runs/current/cancel")
+    app.post("/api/runs/current/cancel", json={})
     wait_until(lambda: app.get("/api/status").json()["state"] == "idle", 15, "idle")
 
 

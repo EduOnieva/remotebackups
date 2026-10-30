@@ -174,5 +174,11 @@ async def client(harness: Harness) -> AsyncIterator[AsyncClient]:
         started_at=harness.clock.now(),
     )
     app = create_app(services, sse_poll_seconds=0.02)
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as http:
+    # The page sends Content-Type: application/json on every call; the client does the same so
+    # the CSRF guard on the mutating routes lets the tests through
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+        headers={"Content-Type": "application/json"},
+    ) as http:
         yield http

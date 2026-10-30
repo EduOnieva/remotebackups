@@ -89,6 +89,24 @@ async def test_start_run_without_body_uses_defaults(client: AsyncClient, harness
     assert harness.engine.starts[0].folders is None
 
 
+async def test_mutating_routes_refuse_what_a_cross_site_form_can_send(
+    client: AsyncClient, harness: Harness
+) -> None:
+    form = {"Content-Type": "application/x-www-form-urlencoded"}
+    assert (await client.post("/api/runs", headers=form)).status_code == 403
+    assert (await client.post("/api/runs/current/cancel", headers=form)).status_code == 403
+    assert (await client.post("/api/remote/check", headers=form)).status_code == 403
+    assert (await client.delete("/api/runs", headers=form)).status_code == 403
+    # Same-origin JSON, as the page sends it, and a cross-site request with the right type
+    assert (
+        await client.post("/api/runs", headers={"Sec-Fetch-Site": "same-origin"})
+    ).status_code == 202
+    assert (
+        await client.post("/api/runs/current/cancel", headers={"Sec-Fetch-Site": "cross-site"})
+    ).status_code == 403
+    assert harness.engine.starts and harness.engine.cancelled == []
+
+
 async def test_start_run_with_unknown_folder_is_400(client: AsyncClient) -> None:
     response = await client.post("/api/runs", json={"folders": ["nope"]})
     assert response.status_code == 400

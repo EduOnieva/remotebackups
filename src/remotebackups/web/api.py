@@ -2,7 +2,7 @@
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, HTTPException, Query, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.responses import FileResponse, PlainTextResponse, StreamingResponse
 
 from remotebackups.config import ConfigError
@@ -35,6 +35,22 @@ MAX_LOG_CHUNK = 1024 * 1024
 def services(request: Request) -> Services:
     result: Services = request.app.state.services
     return result
+
+
+def same_origin_json(request: Request) -> None:
+    """Refuse what an HTML form on another site can send: the CSRF guard of a UI without login.
+
+    A form cannot set a JSON content type, and browsers mark cross-site requests with
+    Sec-Fetch-Site. Scripts and curl add the header; the page's own fetch already does.
+    """
+    if request.headers.get("sec-fetch-site", "same-origin") not in ("same-origin", "none"):
+        raise HTTPException(403, "cross-site request refused")
+    media_type = request.headers.get("content-type", "").split(";")[0].strip().lower()
+    if media_type != "application/json":
+        raise HTTPException(403, "state changes need Content-Type: application/json")
+
+
+mutating = [Depends(same_origin_json)]
 
 
 def _remote_info(svc: Services, remote: RemoteStatusLike) -> RemoteInfo:
@@ -72,7 +88,7 @@ async def status(request: Request) -> StatusResponse:
     )
 
 
-@router.post("/remote/check", response_model=RemoteInfo)
+@router.post("/remote/check", response_model=RemoteInfo, dependencies=mutating)
 async def check_remote(request: Request) -> RemoteInfo:
     """Probe the SSH login now instead of waiting for the periodic check."""
     svc = services(request)
@@ -95,7 +111,7 @@ async def folders(request: Request) -> list[FolderInfo]:
     ]
 
 
-@router.post("/runs", response_model=RunAccepted, status_code=202)
+@router.post("/runs", response_model=RunAccepted, status_code=202, dependencies=mutating)
 async def start_run(request: Request, body: RunRequest | None = None) -> RunAccepted:
     svc = services(request)
     body = body or RunRequest()
@@ -112,7 +128,9 @@ async def start_run(request: Request, body: RunRequest | None = None) -> RunAcce
     return RunAccepted(run_id=record.id, state=RunState.RUNNING)
 
 
-@router.post("/runs/current/cancel", response_model=RunAccepted, status_code=202)
+@router.post(
+    "/runs/current/cancel", response_model=RunAccepted, status_code=202, dependencies=mutating
+)
 async def cancel_run(request: Request) -> RunAccepted:
     svc = services(request)
     current = svc.engine.current
@@ -129,7 +147,7 @@ async def list_runs(
     return [RunSummary.from_record(r) for r in services(request).history.list_runs(limit)]
 
 
-@router.delete("/runs", status_code=204, response_class=Response)
+@router.delete("/runs", status_code=204, response_class=Response, dependencies=mutating)
 async def clear_runs(request: Request) -> Response:
     svc = services(request)
     if svc.engine.current is not None:
