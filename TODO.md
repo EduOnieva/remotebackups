@@ -13,8 +13,6 @@ the changelog.
 
 ## Ideas
 
-- A way to preview a deletion from the UI: Dry run with `--delete`. The API already
-  accepts `dry_run` together with `delete`.
 - Let each top card end at its own height instead of stretching to the tallest one.
   Declined for now: the aligned row looks tidier.
 - Run the CI tests on pushes to `wip` without publishing an image.

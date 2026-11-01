@@ -29,6 +29,8 @@ let knownCurrent = null;
 let folderList = [];
 let isRunning = false;
 let schedulePaused = false;
+// The --delete and --dry-run toggles beside Run; they apply to the next run, page-local
+const runFlags = { delete: false, dry_run: false };
 
 async function api(path, options = {}) {
   const response = await fetch(path, { headers: { "Content-Type": "application/json" }, ...options });
@@ -162,8 +164,6 @@ function renderStatus(s) {
   pauseButton.title = s.schedule_paused ? "Scheduled runs happen again"
     : "Skip scheduled runs until the container restarts; manual runs still work";
   $("run").disabled = running;
-  $("run-delete").disabled = running;
-  $("dry-run").disabled = running;
   $("stop").hidden = !running;
   $("stop").disabled = s.state === "cancelling";
 
@@ -347,7 +347,7 @@ function renderFolders() {
       const busy = isRunning ? "Wait for the run to finish" : "";
       if (!f.paused) {
         const run = rowButton("Run", busy || "Back up this folder now, nothing else", isRunning);
-        run.onclick = () => startRun(false, false, [f.name]);
+        run.onclick = () => startRun([f.name]);
         actions.appendChild(run);
       }
       const pause = rowButton(
@@ -576,13 +576,27 @@ async function showRun(runId) {
   } catch (e) { toast(e.message, true); }
 }
 
-async function startRun(withDelete, dryRun = false, folders = null) {
-  if (withDelete && !confirm("Run with --delete? Files removed locally will be deleted from the backup.")) return;
+function flagList() {
+  return Object.keys(runFlags).filter((k) => runFlags[k]).map((k) => `--${k.replace("_", "-")}`);
+}
+
+function setFlag(name, on) {
+  runFlags[name] = on;
+  $(`opt-${name.replace("_", "-")}`).setAttribute("aria-pressed", String(on));
+  const flags = flagList();
+  $("run").title = flags.length ? `Back up every enabled folder now with ${flags.join(" ")}` : "Back up every enabled folder now";
+}
+
+async function startRun(folders = null) {
+  const { delete: withDelete, dry_run: dryRun } = runFlags;
+  // A dry run deletes nothing, so only a real --delete asks
+  if (withDelete && !dryRun && !confirm("Run with --delete? Files removed locally will be deleted from the backup.")) return;
   try {
     const body = { delete: withDelete, dry_run: dryRun };
     if (folders) body.folders = folders;
     const result = await api("/api/runs", { method: "POST", body: JSON.stringify(body) });
-    toast(`${dryRun ? "Dry run" : "Run"} ${result.run_id} started${folders ? ` · ${folders.join(", ")}` : ""}`);
+    const flags = flagList();
+    toast(`${dryRun ? "Dry run" : "Run"} ${result.run_id} started${flags.length ? ` · ${flags.join(" ")}` : ""}${folders ? ` · ${folders.join(", ")}` : ""}`);
     pinned = false;
     await loadStatus();
   } catch (e) { toast(e.message, true); }
@@ -600,9 +614,9 @@ async function clearHistory() {
   catch (e) { toast(e.message, true); }
 }
 
-$("run").onclick = () => startRun(false);
-$("run-delete").onclick = () => startRun(true);
-$("dry-run").onclick = () => startRun(false, true);
+$("run").onclick = () => startRun();
+$("opt-delete").onclick = () => setFlag("delete", !runFlags.delete);
+$("opt-dry-run").onclick = () => setFlag("dry_run", !runFlags.dry_run);
 $("stop").onclick = stopRun;
 $("check-remote").onclick = checkRemote;
 $("schedule-pause").onclick = () => setSchedulePaused(!schedulePaused);

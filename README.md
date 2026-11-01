@@ -9,9 +9,10 @@ and `rsync`: a NAS (TrueNAS gets extra status), a second server at a friend's pl
 through Tailscale, or a machine on your LAN.
 
 - **Scheduled and manual runs.** A cron expression for the schedule, a Run button for now,
-  a *Run with delete* button when you want the backup to drop files you deleted locally, and
-  a *Dry run* button that reports what a run would transfer. The schedule, or a single
-  folder, can be paused from the UI until the container restarts.
+  and two toggles beside it: `--delete` when you want the backup to drop files you deleted
+  locally, `--dry-run` to report what a run would do without doing it, both together to
+  preview a deletion. The schedule, or a single folder, can be paused from the UI until the
+  container restarts.
 - **Stop.** A running backup can be stopped from the UI; rsync keeps partial files and the
   next run continues where it stopped.
 - **Live log and history.** Every run has its own log, streamed live while it runs and kept
@@ -106,8 +107,9 @@ log of the selected run with a folded table of what happened to each of its fold
 of runs and the configured folders in two cards that fold. The log follows new lines while you
 are at the bottom and offers a "jump to bottom" pill when you scroll up; the file name in its
 title downloads the whole file. A run you selected stays on screen when a scheduled run
-starts; click the new run to follow it. Buttons: **Run**, **Run with delete**, **Dry run**,
-**Stop**, **Clear history**. The layout works on a phone.
+starts; click the new run to follow it. Buttons: **Run**, with the `--delete` and
+`--dry-run` toggles beside it that apply to the next run, **Stop**, **Clear history**. The
+layout works on a phone.
 
 The Status card has a **Pause schedule** button. While the schedule is paused, due runs are
 skipped, never deferred, so resuming starts nothing by itself; manual runs still work. Like a
@@ -115,7 +117,7 @@ folder pause, it lasts until the container restarts, and the card says which run
 skipped.
 
 Each row of the Folders card has two buttons. **Run** backs up that folder alone, as a
-plain manual run; the Runs table names the folder. **Pause** makes runs skip the folder
+manual run with the toggles as they are set; the Runs table names the folder. **Pause** makes runs skip the folder
 until the container restarts, which forgets every pause, and the card says so while any
 folder is paused; the button then reads **Resume**. The permanent switch stays in
 `config.yaml` (`enabled: false`); a folder disabled there has no buttons, since it cannot be
@@ -189,7 +191,7 @@ folders:
     name: documents                  # optional; defaults to the last part of source
     excludes: ["*.tmp"]              # added to rsync.excludes
     extra_options: []
-    allow_delete: true               # false: "Run with delete" skips --delete for this folder
+    allow_delete: true               # false: the --delete toggle skips this folder
     enabled: true
 truenas:
   pool_aliases: {tank: disk-0}
@@ -216,12 +218,12 @@ rsync -a -v -z --partial --stats --no-owner --no-group [--delete] [--dry-run] [-
   -e "ssh -F /run/remotebackups/ssh/config" /data/documents/ backup@host:/mnt/backup/documents/
 ```
 
-- `--delete` is added only to a manual *Run with delete*, and only for folders with
-  `allow_delete: true`. Scheduled runs never delete.
+- `--delete` is added only to a manual run with the `--delete` toggle on, and only for
+  folders with `allow_delete: true`. Scheduled runs never delete.
 - `--timeout` is added only to scheduled runs, so a NAS that fell asleep cannot hold a
   scheduled run forever, while a manual run you are watching is left alone.
-- `--dry-run` is added by the *Dry run* button (or `dry_run` in the API body, which can be
-  combined with `delete` to preview a deletion): rsync reports what it would transfer and
+- `--dry-run` is added by the `--dry-run` toggle (or `dry_run` in the API body); with
+  `--delete` on as well it previews a deletion. rsync reports what it would transfer and
   touches nothing. The run is recorded like any other, marked as a dry run.
 - Editing `schedule.cron` in `config.yaml` moves the next scheduled run within a minute.
   **Pause schedule** in the UI skips due runs until the container restarts.

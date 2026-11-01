@@ -13,9 +13,9 @@
   <header>
     <h1>remotebackups <span class="muted">v{{ version }}</span></h1>
     <div class="actions">
-      <button id="run" class="primary">Run</button>
-      <button id="run-delete" class="warn">Run with delete</button>
-      <button id="dry-run" class="ghost" title="rsync --dry-run: report what a Run would transfer, change nothing">Dry run</button>
+      <button id="run" class="primary" title="Back up every enabled folder now">Run</button>
+      <button id="opt-delete" class="toggle warn" aria-pressed="false" title="Next run: delete from the backup what was deleted locally (folders with allow_delete)">--delete</button>
+      <button id="opt-dry-run" class="toggle" aria-pressed="false" title="Next run: report what would be transferred, change nothing">--dry-run</button>
       <button id="stop" class="danger" hidden>Stop</button>
     </div>
   </header>
