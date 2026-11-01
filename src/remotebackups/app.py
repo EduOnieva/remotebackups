@@ -150,7 +150,8 @@ class Application:
             try:
                 config = self.load_config()
                 ssh = SshSetup(self.paths, config.remote)
-                result = await ssh.probe(ssh.prepare())
+                # prepare() copies the key and runs ssh-keygen: blocking work, off the loop
+                result = await ssh.probe(await asyncio.to_thread(ssh.prepare))
                 ok, message = result.ok, result.message
             except (ConfigError, SshSetupError) as exc:
                 ok, message = False, str(exc)

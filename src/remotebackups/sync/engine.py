@@ -146,7 +146,7 @@ class SyncEngine:
             lock = self._acquire_lock(self._paths.runs_dir / ".lock")
             if lock is None:
                 raise SshSetupError("another process holds the run lock; is run-once active?")
-            ssh = SshSetup(self._paths, config.remote).prepare()
+            ssh = await asyncio.to_thread(SshSetup(self._paths, config.remote).prepare)
             builder = RsyncCommandBuilder(config.rsync, config.remote, ssh.command, ssh.password)
             for folder, result in zip(folders, record.folders, strict=True):
                 if self._cancel_reason:
