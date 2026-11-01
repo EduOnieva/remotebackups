@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 2.4 - 2026-11-01
 
 ### Added
 - `custom.css` and `custom.js` in the config folder are loaded after the page's own files, on every page load, so the look can be adjusted without rebuilding the image.
