@@ -338,6 +338,16 @@ Work happens on the `develop` branch, which publishes the `develop` image on eve
 A release merges `develop` into `main`, which publishes `latest`, and tags it `vX.Y`, which
 publishes the numbered images. Versions have two parts: after 2.1 comes 2.2.
 
+## AI assistance
+
+Version 2 was written with an AI coding assistant (Claude Code). We write the code together:
+I designed the application and wrote the backend, the scheduler, the sync engine and the
+configuration; the assistant wrote the web UI, the tests and the documentation, and I
+consulted it on the security measures. I decide what the tool does and refuses to do and
+what is safe, and I read every change before it lands. Nothing is merged on the assistant's
+word: the test suite, the integration stack against a real sshd and the image scan run on
+every push, and the deployment this repository backs up is my own.
+
 ## Acknowledgements
 
 This project started as a fork of [insrch/rsync](https://hub.docker.com/r/insrch/rsync).
