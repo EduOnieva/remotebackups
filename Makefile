@@ -2,6 +2,9 @@ UV ?= uv
 PY_TARGETS := src/remotebackups tests
 IMAGE ?= remotebackups:dev
 TEST_STACK := docker compose -f compose/docker-compose.test.yml
+# Services the integration run builds; empty builds them all. CI loads the app image its
+# image job built, sets APP_IMAGE to it and builds only the rest
+TEST_BUILD ?=
 
 .PHONY: install fmt lint type test lock-check check build run test-integration clean
 
@@ -35,7 +38,7 @@ run: build  ## Run the app-only compose file against the local image
 
 test-integration:  ## Real sshd + the image under test; then docker stop mid-run
 	$(TEST_STACK) down -v --remove-orphans
-	$(TEST_STACK) build
+	$(TEST_STACK) build $(TEST_BUILD)
 	$(TEST_STACK) up --abort-on-container-exit --exit-code-from tests tests
 	./compose/stop-test.sh
 	$(TEST_STACK) down -v

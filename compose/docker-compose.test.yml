@@ -27,6 +27,7 @@ services:
   app:
     build:
       context: ..
+    image: ${APP_IMAGE:-remotebackups:test}
     depends_on:
       sshd:
         condition: service_healthy
@@ -40,10 +41,10 @@ services:
       - app-config:/config
       - source:/data:ro
 
-  # Same image, password authentication against a second user; shares the sshd
+  # The image `app` built, password authentication against a second user; shares the sshd
   app-password:
-    build:
-      context: ..
+    image: ${APP_IMAGE:-remotebackups:test}
+    pull_policy: never
     depends_on:
       sshd:
         condition: service_healthy
