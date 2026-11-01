@@ -28,7 +28,6 @@ dependencies = [
 
 [project.urls]
 Homepage = "https://github.com/EduOnieva/remotebackups"
-Issues = "https://github.com/EduOnieva/remotebackups/issues"
 
 [project.scripts]
 remotebackups = "remotebackups.cli:main"
