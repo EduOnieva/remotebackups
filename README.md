@@ -115,6 +115,11 @@ folder is paused; the button then reads **Resume**. The permanent switch stays i
 turned on from the UI. Pausing is refused while a run is active, since it could only apply
 to the next one.
 
+A `custom.css` or `custom.js` file in the config folder is loaded after the page's own
+stylesheet and script, on every page load, so the look can be adjusted without rebuilding the
+image: override the colour variables (`--bg`, `--card`, `--accent`, `--ok`, `--warn`,
+`--danger`, `--log-bg`...), hide a card, or add a script. Edit the file and reload; no restart.
+
 ![A run in progress](docs/screenshots/running.png)
 
 *A run in progress: the Status card shows the folder being copied and the elapsed time, the log streams live. The schedule is paused here, so the card says which run will be skipped.*
@@ -278,7 +283,8 @@ renamed with `TRUENAS_POOL_ALIASES` so dashboards keep stable keys.
   rotate them through Docker. Run logs are files under `config/runs/`, one per run, deleted
   after `HISTORY_KEEP_DAYS`.
 - **State.** Everything is under `/config`: `config.yaml`, `ssh/` (the pinned
-  `known_hosts`), `runs/`. Back that folder up and the container is disposable.
+  `known_hosts`), `runs/`, and the optional `custom.css` and `custom.js`. Back that folder up
+  and the container is disposable.
 - **Changed destination host key.** With the default `tofu` policy a changed key fails the
   connection and the status says so. If the server was reinstalled, delete its line from
   `config/ssh/known_hosts`.
@@ -286,6 +292,9 @@ renamed with `TRUENAS_POOL_ALIASES` so dashboards keep stable keys.
   branches: `latest` is `main`, which moves at releases; `2.1` pins a release and `2` its
   newest; `develop` is the `develop` branch, where changes land first. On Docker Hub
   (`eduonieva/remotebackups`) and GHCR (`ghcr.io/eduonieva/remotebackups`), for amd64 and arm64.
+  The release tags are rebuilt every Monday from the same code, so fixes in the Python base
+  image and Alpine packages arrive with a `pull`; the image carries no pip, so the only Python
+  packages in it are the application's own.
 - **CLI.** `docker exec remotebackups remotebackups check-config | print-config --redact |
   print-example-config | run-once [--delete] [--dry-run] [--folder NAME]`. After an upgrade,
   `print-example-config` shows the current template with any new keys; nothing in `/config`

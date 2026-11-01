@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- `custom.css` and `custom.js` in the config folder are loaded after the page's own files, on every page load, so the look can be adjusted without rebuilding the image.
+- The release images are rebuilt every Monday from the same code, so base image and Alpine package fixes reach `latest`, `X.Y` and `X` without a code change.
+
+### Changed
+- pip, ensurepip, idle and pydoc are removed from the runtime image: nothing ran them, and pip's vendored urllib3, msgpack and setuptools were everything image scanners reported.
+
 ## 2.3 - 2026-10-30
 
 ### Added
