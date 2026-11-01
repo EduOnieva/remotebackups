@@ -7,8 +7,6 @@ the changelog.
 
 - Keep the "Jump to bottom" pill from covering the last log lines, for example with some
   bottom padding on the log while the pill is visible.
-- Publish `docs/wiki/` to the GitHub wiki: create the wiki's first page in the web UI, then
-  push the pages as described in `docs/wiki/Development.md`.
 
 ## Ideas
 
