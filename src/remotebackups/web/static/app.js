@@ -116,7 +116,14 @@ function setLogTitle(runId, startedAt, live = false) {
   link.href = `/api/runs/${runId}/log/download`;
   link.download = "";
   link.title = "Download the full log";
-  link.textContent = `${runId}.log`;
+  // The file name wraps mid-id on a phone; one word does the same job there
+  const name = document.createElement("span");
+  name.className = "wide-only";
+  name.textContent = `${runId}.log`;
+  const short = document.createElement("span");
+  short.className = "phone-only";
+  short.textContent = "download";
+  link.append(name, short);
   title.appendChild(link);
 }
 
@@ -143,8 +150,9 @@ function renderStatus(s) {
   const next = $("next-run");
   schedulePaused = s.schedule_paused;
   const when = s.next_run_at ? `${fmtRelative(s.next_run_at)} · ${fmtTime(s.next_run_at, false)}` : "";
+  const skipped = s.next_run_at ? `${fmtTime(s.next_run_at, false)} (${fmtRelative(s.next_run_at)})` : "the next run";
   next.textContent = !s.schedule ? "schedule disabled"
-    : s.schedule_paused ? `paused · ${when || "the next run"} will be skipped`
+    : s.schedule_paused ? `paused · will skip ${skipped}`
     : (when || "computing…");
   next.className = s.schedule_paused ? "warn-text" : "";
   next.title = s.schedule ? `cron: ${s.schedule}` : "";
@@ -414,7 +422,7 @@ function renderPool(pool) {
   bar.appendChild(fill);
   const detail = document.createElement("div");
   detail.className = "muted small";
-  let text = `${pool.used_pct}% used · ${fmtBytes(pool.free)} free of ${fmtBytes(pool.size)}`;
+  let text = `${Math.round(pool.used_pct)}% used · ${fmtBytes(pool.free)} free of ${fmtBytes(pool.size)}`;
   if (pool.scrub_ended_at) {
     const errors = pool.scrub_errors ? `${pool.scrub_errors} errors` : "no errors";
     text += ` · last scrub ${fmtDate(pool.scrub_ended_at)}, ${errors}`;

@@ -46,7 +46,7 @@ button.primary { background: var(--accent); color: #fff; border-color: transpare
 button.warn { color: var(--warn); }
 button.danger { background: var(--danger); color: #fff; border-color: transparent; }
 button.ghost { background: transparent; }
-.log { background: var(--log-bg); color: var(--log-text); padding: 12px; border-radius: 6px; max-height: 420px; overflow: auto; font: 12.5px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; white-space: pre-wrap; word-break: break-all; margin: 0; }
+.log { background: var(--log-bg); color: var(--log-text); padding: 12px; border-radius: 6px; max-height: 420px; overflow: auto; font: 12.5px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; }
 .log .err { color: #ff7b72; }
 .log .warn { color: #e3b341; }
 #log-notice { margin: 0 0 8px; }
@@ -64,6 +64,7 @@ button.ghost { background: transparent; }
 .alert { display: grid; grid-template-columns: auto 1fr; gap: 8px; align-items: baseline; font-size: 13px; margin: 6px 0; }
 #truenas-error { margin: 8px 0 0; }
 #log-title a { color: var(--accent); text-decoration: underline dotted; text-underline-offset: 3px; text-transform: none; }
+.phone-only { display: none; }
 .table-wrap { overflow-x: auto; }
 #run-folders-wrap { margin-top: 10px; }
 details.fold > summary { cursor: pointer; list-style: none; user-select: none; font-size: 13px; color: var(--muted); }
@@ -81,7 +82,7 @@ tbody tr:last-child td { border-bottom: none; }
 /* Numbers right-aligned with equal-width digits, so sizes and counts compare down a column */
 th.num, td.num { text-align: right; font-variant-numeric: tabular-nums; }
 th.mid, td.mid { text-align: center; }
-td.path { white-space: normal; word-break: break-all; color: var(--muted); }
+td.path { white-space: normal; overflow-wrap: anywhere; color: var(--muted); }
 td.chips .badge + .badge { margin-left: 6px; }
 th.row-actions, td.row-actions { text-align: center; width: 1%; white-space: nowrap; }
 td.row-actions { padding-top: 4px; padding-bottom: 4px; }
@@ -108,6 +109,7 @@ tbody tr.selected { background: color-mix(in srgb, var(--accent) 16%, transparen
   .log { max-height: 60vh; font-size: 12px; }
   /* Files and bytes are in the log anyway; five columns is what fits without scrolling */
   .wide-only { display: none; }
+  .phone-only { display: inline; }
   th, td { padding: 6px 4px; }
   #toast { left: 16px; right: 16px; transform: none; max-width: none; }
 }
