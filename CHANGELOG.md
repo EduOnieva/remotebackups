@@ -12,7 +12,7 @@
 - pip, ensurepip, idle and pydoc are removed from the runtime image: nothing ran them, and pip's vendored urllib3, msgpack and setuptools were everything image scanners reported.
 - The compose files run the container read-only, with every capability dropped except `DAC_READ_SEARCH` and `DAC_OVERRIDE`, and the runtime directory on a tmpfs.
 - State-changing API calls are also refused when the browser's `Origin` is not the page's own host (or `X-Forwarded-Host` behind a proxy), for browsers that do not send `Sec-Fetch-Site`.
-- The *Run with delete* and *Dry run* buttons are now `--delete` and `--dry-run` toggles beside **Run**. They apply to the next run, from the header or from a folder's row, and together they preview a deletion. On a phone the row stays on one line with **Stop** showing.
+- The *Run with delete* and *Dry run* buttons are now `--delete` and `--dry-run` toggles beside **Run**. They apply to the next run, from the header or from a folder's row, and together they preview a deletion. The Runs table and the Trigger row name the flags the same way. A run consumes the toggles: while it is active they show its flags and are locked, and afterwards they are off. On a phone the row stays on one line with **Stop** showing.
 - A paused schedule reads "paused · will skip <date> (in N hours)" instead of three fragments.
 - The browser chrome on phones takes the page's background colour (`theme-color`).
 - No more `sha-<commit>` image tags: the version tags already pin a release, and the weekly rebuild moves both alike.

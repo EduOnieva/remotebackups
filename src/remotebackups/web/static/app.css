@@ -50,6 +50,8 @@ button.ghost { background: transparent; }
 button.toggle { background: transparent; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--muted); }
 button.toggle[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
 button.toggle.warn[aria-pressed="true"] { color: var(--warn); border-color: var(--warn); background: color-mix(in srgb, var(--warn) 14%, transparent); }
+/* Locked during a run they still show the run's flags, so they stay readable */
+button.toggle:disabled { opacity: .8; }
 .log { background: var(--log-bg); color: var(--log-text); padding: 12px; border-radius: 6px; max-height: 420px; overflow: auto; font: 12.5px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; }
 .log .err { color: #ff7b72; }
 .log .warn { color: #e3b341; }

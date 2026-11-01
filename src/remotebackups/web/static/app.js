@@ -29,7 +29,8 @@ let knownCurrent = null;
 let folderList = [];
 let isRunning = false;
 let schedulePaused = false;
-// The --delete and --dry-run toggles beside Run; they apply to the next run, page-local
+// The --delete and --dry-run toggles beside Run: they apply to the next run and are consumed
+// by it, so a --delete never lingers for the run after
 const runFlags = { delete: false, dry_run: false };
 
 async function api(path, options = {}) {
@@ -108,7 +109,8 @@ const label = (outcome) => {
   return words.charAt(0).toUpperCase() + words.slice(1);
 };
 // A one-folder run names its folder, so a run started from the folder's row stays recognisable
-const runKind = (r, sep) => `${r.trigger}${r.delete ? `${sep}with delete` : ""}${r.dry_run ? `${sep}dry run` : ""}${r.folders_total === 1 ? ` · ${r.folder_names[0]}` : ""}`;
+// The flags as the toggles spell them, so a row reads like the run that was started
+const runKind = (r) => `${r.trigger}${r.delete ? " --delete" : ""}${r.dry_run ? " --dry-run" : ""}${r.folders_total === 1 ? ` · ${r.folder_names[0]}` : ""}`;
 // The file name in the title is the download link: a hint that the full log is one click away
 function setLogTitle(runId, startedAt, live = false) {
   const title = $("log-title");
@@ -164,6 +166,7 @@ function renderStatus(s) {
   pauseButton.title = s.schedule_paused ? "Scheduled runs happen again"
     : "Skip scheduled runs until the container restarts; manual runs still work";
   $("run").disabled = running;
+  renderFlags(running ? current : null);
   $("stop").hidden = !running;
   $("stop").disabled = s.state === "cancelling";
 
@@ -186,7 +189,7 @@ function renderProgress(current) {
   for (const id of ["row-trigger", "row-progress", "row-elapsed", "progress-bar"]) $(id).hidden = !current;
   if (!current) return;
   const done = current.folders_ok + current.folders_failed;
-  $("trigger").textContent = runKind(current, ", ");
+  $("trigger").textContent = runKind(current);
   $("progress").textContent = `${done} of ${current.folders_total} folders${current.current_folder ? ` · ${current.current_folder}` : ""}`;
   $("elapsed").textContent = fmtDuration((Date.now() - new Date(current.started_at)) / 1000);
   const bar = $("progress-bar");
@@ -279,7 +282,7 @@ function renderRuns() {
     }
     tr.append(
       cell(fmtTime(r.started_at)),
-      cell(runKind(r, " + ")),
+      cell(runKind(r)),
       cell(label(r.outcome), `state-${r.outcome}`),
       cell(fmtDuration(r.duration_s), "num"),
       folders,
@@ -582,7 +585,18 @@ function flagList() {
 
 function setFlag(name, on) {
   runFlags[name] = on;
-  $(`opt-${name.replace("_", "-")}`).setAttribute("aria-pressed", String(on));
+  renderFlags(null);
+}
+
+// While a run is active the toggles show that run's flags and are locked, so a reload
+// mid-run does not read as "off"; afterwards they are the choice for the next run again
+function renderFlags(current) {
+  const shown = current ? { delete: current.delete, dry_run: current.dry_run } : runFlags;
+  for (const name of ["delete", "dry_run"]) {
+    const button = $(`opt-${name.replace("_", "-")}`);
+    button.setAttribute("aria-pressed", String(shown[name]));
+    button.disabled = Boolean(current);
+  }
   const flags = flagList();
   $("run").title = flags.length ? `Back up every enabled folder now with ${flags.join(" ")}` : "Back up every enabled folder now";
 }
@@ -597,6 +611,7 @@ async function startRun(folders = null) {
     const result = await api("/api/runs", { method: "POST", body: JSON.stringify(body) });
     const flags = flagList();
     toast(`${dryRun ? "Dry run" : "Run"} ${result.run_id} started${flags.length ? ` · ${flags.join(" ")}` : ""}${folders ? ` · ${folders.join(", ")}` : ""}`);
+    runFlags.delete = runFlags.dry_run = false;
     pinned = false;
     await loadStatus();
   } catch (e) { toast(e.message, true); }
