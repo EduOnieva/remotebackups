@@ -1,7 +1,9 @@
 # remotebackups
 
 Scheduled rsync backups of your home-server folders to another host, with a web UI.
-Source, releases and changelog: https://github.com/EduOnieva/remotebackups
+Source, releases and changelog: https://github.com/EduOnieva/remotebackups.
+The [wiki](https://github.com/EduOnieva/remotebackups/wiki) has the longer guides: destinations,
+reverse proxies, troubleshooting, the API and restoring.
 
 One container. Mount the folders, point it at a host you can SSH into, and it keeps a copy
 there: on a schedule, or when you press **Run**. The destination can be anything with `sshd`
@@ -142,6 +144,13 @@ image: override the colour variables (`--bg`, `--card`, `--accent`, `--ok`, `--w
 Settings come from three layers: built-in defaults, then `/config/config.yaml`, then
 environment variables. The recommended split is connection and secrets in the environment,
 folders and rsync options in the file. `remotebackups print-config --redact` shows the result.
+Every key is described in the wiki's
+[Configuration](https://github.com/EduOnieva/remotebackups/wiki/Configuration) page.
+
+A value in `environment:` is readable by anyone who can run `docker inspect`. For the TrueNAS
+key and an SSH password, put the value in a file and name the file instead:
+`FILE__TRUENAS_API_KEY=/run/secrets/truenas_key`, with the file mounted read-only or declared
+under Compose's `secrets:`.
 
 ### Environment variables
 
@@ -168,7 +177,7 @@ folders and rsync options in the file. `remotebackups print-config --redact` sho
 | `WEB_PORT` | `8080` | Only needed when another service in the same network namespace uses 8080 |
 | `TZ` | `Etc/UTC` | Schedule and log timestamps |
 | `LOG_LEVEL` | `INFO` | `DEBUG` \| `INFO` \| `WARNING` \| `ERROR`: how much the application logs to stdout |
-| `FILE__<VAR>` | | Read `<VAR>` from a file, e.g. `FILE__TRUENAS_API_KEY=/run/secrets/truenas` |
+| `FILE__<VAR>` | | Read `<VAR>` from a file instead of the environment; the recommended way to pass `TRUENAS_API_KEY` and `SSH_PASSWORD` |
 
 ### config.yaml
 
@@ -182,7 +191,7 @@ schedule:
   rsync_timeout: 3600
 rsync:
   options: ["-a", "-v", "-z", "--partial", "--stats"]
-  preserve_ownership: false   # see "TrueNAS and other non-root destinations"
+  preserve_ownership: false   # true only for a root destination user; see below
   extra_options: []
   excludes: ["*.Trash*", "lost+found", "System Volume Information", ".DS_Store", "Thumbs.db", "desktop.ini", ".venv"]
 folders:
@@ -231,34 +240,29 @@ rsync -a -v -z --partial --stats --no-owner --no-group [--delete] [--dry-run] [-
   keeps what was transferred; the next run resumes.
 - Only one run at a time. A second start is refused, and a scheduled run that finds another
   run active is skipped with a warning.
+- The destination user is usually not root, so `rsync.preserve_ownership` defaults to `false`
+  and every run passes `--no-owner --no-group`; with plain `-a` a non-root user ends every run
+  in "partial transfer due to error" (exit 23). Set it to `true` only for a root user.
 
 ## API
 
-| Endpoint | What it returns |
+Everything the page shows comes from a JSON API, documented live at `/docs` and in the wiki's
+[API](https://github.com/EduOnieva/remotebackups/wiki/API) page with examples for dashboards.
+The endpoints most people use:
+
+| Endpoint | What it does |
 |---|---|
-| `GET /healthz` | 200 while the scheduler loop is alive, 503 otherwise (for Docker's HEALTHCHECK) |
+| `GET /healthz` | 200 while the scheduler loop is alive, 503 otherwise (Docker's HEALTHCHECK) |
 | `GET /api/status` | State, current and last run, next scheduled run, remote reachability |
-| `GET /api/folders` | The configured folders, whether each source exists and whether it is paused |
-| `PUT /api/folders/{name}` | Body `{"paused": true}` or `false`. 409 while a run is active, 400 for a folder disabled in `config.yaml` |
-| `PUT /api/schedule` | Body `{"paused": true}` or `false`: skip scheduled runs until the container restarts. 400 when there is no schedule |
-| `POST /api/runs` | Start a run; body `{"delete": false, "dry_run": false, "folders": ["documents"]}` is optional. 409 while a run is active |
+| `POST /api/runs` | Start a run; body `{"delete": false, "dry_run": false, "folders": ["documents"]}` is optional |
 | `POST /api/runs/current/cancel` | Stop the active run |
-| `POST /api/remote/check` | Probe the SSH login now instead of waiting for the periodic check |
-| `GET /api/runs?limit=20` | Run history, newest first |
-| `GET /api/runs/{id}` | One run with its per-folder results and rsync statistics |
-| `GET /api/runs/{id}/log?offset=0` | The log as text, in chunks |
-| `GET /api/runs/{id}/log/stream` | The log as Server-Sent Events, live while the run is going |
-| `DELETE /api/runs` | Delete all history |
-| `GET /api/config` | The effective configuration, secrets masked |
-| `GET /api/truenas` | Pools (usage, health, scrub) and alerts as the TrueNAS card shows them |
-| `GET /api/pool_status` | `{"sync_errors": N, "alerts": M, "<pool>": "X TB"}`, or `{"sync_errors": N, "truenas": "disabled"}` |
-| `GET /docs` | Interactive API documentation |
+| `GET /api/pool_status` | `{"sync_errors": N, "alerts": M, "<pool>": "X TB"}` for dashboards, the v1 shape |
 
 The UI has no login. Keep it where only you can reach it: on your tailnet (the Tailscale
 compose file does exactly that), on your LAN, or behind your reverse proxy's authentication.
 `POST`, `PUT` and `DELETE` calls must carry `Content-Type: application/json` and come from the
-same origin, so a page on another site cannot start or stop a run through your browser; from
-a script, add the header: `curl -X POST -H 'Content-Type: application/json' host:8080/api/runs`.
+page's own origin, so a page on another site cannot start or stop a run through your browser;
+from a script, add the header: `curl -X POST -H 'Content-Type: application/json' host:8080/api/runs`.
 
 ## Networking
 
@@ -270,21 +274,17 @@ a script, add the header: `curl -X POST -H 'Content-Type: application/json' host
 - **Host already on the tailnet or a VPN**: use the plain compose file; the container reaches
   whatever the host can reach.
 - **LAN**: the plain compose file with the destination's LAN address.
+- **Behind a reverse proxy**: Caddy, Traefik and nginx snippets, and the one header a proxy
+  that rewrites `Host` must add, are in the wiki's
+  [Networking](https://github.com/EduOnieva/remotebackups/wiki/Networking) page.
 
-## TrueNAS and other non-root destinations
+## Destinations
 
-Follow the TrueNAS SCALE documentation: enable the SSH service, create a user with a home
-directory on a dataset, shell access and *SSH Access*, paste your public key in its
-*Public SSH Key* field, and give it write permission on the destination dataset.
-
-A user that is not root cannot change file ownership, so with rsync's plain `-a` every run
-would end with "partial transfer due to error" (exit 23). That is why
-`rsync.preserve_ownership` defaults to `false`, which adds `--no-owner --no-group`. Set it to
-`true` only when the destination user is root.
-
-With `TRUENAS_API_KEY` set, the UI shows the NAS alert count and the free space of each
-pool, and `/api/pool_status` carries the same numbers for dashboards. Pool names can be
-renamed with `TRUENAS_POOL_ALIASES` so dashboards keep stable keys.
+Anything with `sshd` and `rsync` works. The destination user needs a key in its
+`authorized_keys` and write permission on the destination folders; the wiki's
+[Destinations](https://github.com/EduOnieva/remotebackups/wiki/Destinations) page walks
+through TrueNAS SCALE (user, dataset permissions, API key for the card), Synology and a plain
+Linux host.
 
 ## Operations
 
@@ -308,20 +308,18 @@ renamed with `TRUENAS_POOL_ALIASES` so dashboards keep stable keys.
   print-example-config | run-once [--delete] [--dry-run] [--folder NAME]`. After an upgrade,
   `print-example-config` shows the current template with any new keys; nothing in `/config`
   is rewritten behind your back.
+- **Something wrong.** The wiki's
+  [Troubleshooting](https://github.com/EduOnieva/remotebackups/wiki/Troubleshooting) page
+  goes message by message, and [Operations](https://github.com/EduOnieva/remotebackups/wiki/Operations)
+  covers restoring from the backup.
 
-## Migrating from version 1 (rsync-tailscale-docker)
+## Migrating from version 1
 
-Version 2 is a rewrite; the v1 code is tagged `v1.2.0`. What changes for a v1 deployment:
-
-- The routes JSON becomes `folders:` in `config/config.yaml`; `ROUTES_FILE`, `SSH_KEY_FILE`
-  and `/mnt/ssh_keys` are gone. Mount the key file read-only at `/run/secrets/ssh_key` instead.
-- `REMOTE_API_TOKEN` is now `TRUENAS_API_KEY`; `TRUENAS_DISABLED` is gone (TrueNAS is on
-  when a key is set). `TRUENAS_POOL_ALIASES` is unchanged.
-- The UI moved from port 80 to 8080 inside the container; update your port mapping.
-- rsync runs with `--no-owner --no-group` unless `rsync.preserve_ownership: true`.
-- `/api/pool_status` keeps its shape. `sync_errors` now counts the folders that failed in
-  the last run instead of error lines in a log file.
-- Run logs are per run under `config/runs/`; the old `sync.log` is not read.
+Version 2 is a rewrite of rsync-tailscale-docker; the v1 code is tagged `v1.2.0`. The
+routes JSON becomes `folders:` in `config.yaml`, the key is mounted at `/run/secrets/ssh_key`,
+`REMOTE_API_TOKEN` is `TRUENAS_API_KEY`, the UI port inside the container is 8080 and
+`/api/pool_status` keeps its shape. The full list is in the wiki's
+[Migrating from v1](https://github.com/EduOnieva/remotebackups/wiki/Migrating-from-v1) page.
 
 ## Development
 
@@ -332,13 +330,11 @@ make build             # docker build -t remotebackups:dev .
 make test-integration  # real sshd + the image under test, then a docker stop mid-run
 ```
 
-Unit tests drive fake `rsync`, `ssh`, `ssh-keygen` and `sshpass` binaries, so they run
-anywhere in a few seconds. The integration stack in `compose/` runs in CI on every push,
-alongside the image build.
-
-Work happens on the `develop` branch, which publishes the `develop` image on every push.
-A release merges `develop` into `main`, which publishes `latest`, and tags it `vX.Y`, which
-publishes the numbered images. Versions have two parts: after 2.1 comes 2.2.
+Work happens on the `develop` branch, which publishes the `develop` image on every push; a
+release merges into `main` and tags `vX.Y`. The code layout, the test strategy, CI and the
+release steps are in the wiki's
+[Development](https://github.com/EduOnieva/remotebackups/wiki/Development) page.
+Security reports go through [`SECURITY.md`](SECURITY.md).
 
 ## AI assistance
 

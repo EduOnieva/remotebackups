@@ -7,9 +7,8 @@ the changelog.
 
 - Keep the "Jump to bottom" pill from covering the last log lines, for example with some
   bottom padding on the log while the pill is visible.
-- Document `FILE__TRUENAS_API_KEY` with a secret file as the recommended way to pass the
-  TrueNAS key, since a plain environment variable is readable through `docker inspect`.
-- Complete the GitHub wiki.
+- Publish `docs/wiki/` to the GitHub wiki: create the wiki's first page in the web UI, then
+  push the pages as described in `docs/wiki/Development.md`.
 
 ## Ideas
 

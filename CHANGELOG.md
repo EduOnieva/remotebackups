@@ -7,8 +7,10 @@
 - The release images are rebuilt every Monday from the same code, so base image and Alpine package fixes reach `latest`, `X.Y` and `X` without a code change.
 
 - A `SECURITY.md` with the private reporting channel and what is supported.
+- The wiki, kept in `docs/wiki/`: installation, every configuration key, destinations (TrueNAS SCALE, Synology, a Linux host), networking and reverse proxies, operations and restoring, troubleshooting by message, the API with dashboard examples, customising the UI, development, migrating from v1.
 
 ### Changed
+- The README is the front page again: quick start, the UI, the configuration tables, and links into the wiki for the rest. Screenshots retaken from a demo deployment, so they show no real host or folder names. `FILE__TRUENAS_API_KEY` with a secret file is the documented way to pass the TrueNAS key.
 - pip, ensurepip, idle and pydoc are removed from the runtime image: nothing ran them, and pip's vendored urllib3, msgpack and setuptools were everything image scanners reported.
 - The compose files run the container read-only, with every capability dropped except `DAC_READ_SEARCH` and `DAC_OVERRIDE`, and the runtime directory on a tmpfs.
 - State-changing API calls are also refused when the browser's `Origin` is not the page's own host (or `X-Forwarded-Host` behind a proxy), for browsers that do not send `Sec-Fetch-Site`.
