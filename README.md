@@ -19,7 +19,9 @@ through Tailscale, or a machine on your LAN.
 - **Honest status.** `/healthz` for Docker, `/api/status` for your dashboards, and the SSH
   login is probed every five minutes so you see a sleeping NAS before a run fails.
 - **Safe defaults.** Key authentication, host keys pinned on first use, rsync and ssh never
-  see the application's secrets, and `--delete` is never part of a scheduled run.
+  see the application's secrets, and `--delete` is never part of a scheduled run. The compose
+  files run the container read-only with every capability dropped but the two root needs to
+  read your folders and write `/config`.
 - **TrueNAS SCALE aware.** Optional card with each pool's usage, health and last scrub plus the
   current alerts, from the TrueNAS API; `/api/pool_status` keeps the v1 shape for dashboards.
 
@@ -61,6 +63,11 @@ through Tailscale, or a machine on your LAN.
        stop_grace_period: 30s
        security_opt:
          - no-new-privileges:true
+       cap_drop: [ALL]
+       cap_add: [DAC_READ_SEARCH, DAC_OVERRIDE]
+       read_only: true
+       tmpfs:
+         - /run/remotebackups
        ports:
          - "8080:8080"
        volumes:

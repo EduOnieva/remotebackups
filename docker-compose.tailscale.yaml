@@ -50,7 +50,14 @@ services:
     restart: unless-stopped
     stop_grace_period: 30s
     security_opt:
-      - no-new-privileges:true
+      - no-new-privileges:true # nothing in the container needs to gain privileges
+    # Root inside, with only what root needs here: reading your folders whatever their owner
+    # and writing /config. The rest is dropped and the image itself is mounted read-only
+    cap_drop: [ALL]
+    cap_add: [DAC_READ_SEARCH, DAC_OVERRIDE]
+    read_only: true
+    tmpfs:
+      - /run/remotebackups # the ssh config and key copy; forgotten at every start
     volumes:
       - ./config:/config
       # Absolute path: `~` would be root's home under sudo or Portainer, and a missing source

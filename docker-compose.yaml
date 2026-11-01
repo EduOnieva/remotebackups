@@ -14,6 +14,13 @@ services:
     stop_grace_period: 30s # a running rsync gets SIGTERM and ten seconds before SIGKILL
     security_opt:
       - no-new-privileges:true # nothing in the container needs to gain privileges
+    # Root inside, with only what root needs here: reading your folders whatever their owner
+    # and writing /config. The rest is dropped and the image itself is mounted read-only
+    cap_drop: [ALL]
+    cap_add: [DAC_READ_SEARCH, DAC_OVERRIDE]
+    read_only: true
+    tmpfs:
+      - /run/remotebackups # the ssh config and key copy; forgotten at every start
     ports:
       - "8080:8080"
     volumes:
