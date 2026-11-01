@@ -1,0 +1,53 @@
+# Screenshot stack: the dev image, a real sshd reachable as nas.lan, and the host's fake TrueNAS.
+services:
+  keygen:
+    image: alpine:3.24.3
+    command: >
+      sh -c 'apk add --no-cache openssh-keygen >/dev/null &&
+             [ -f /keys/ssh_key ] || ssh-keygen -q -t ed25519 -N "" -f /keys/ssh_key;
+             chmod 644 /keys/ssh_key /keys/ssh_key.pub'
+    volumes:
+      - keys:/keys
+  sshd:
+    build: ../../../compose/sshd
+    depends_on:
+      keygen:
+        condition: service_completed_successfully
+    networks:
+      default:
+        aliases: [nas.lan]
+    volumes:
+      - keys:/keys:ro
+      - dest:/mnt/backup
+    healthcheck:
+      test: ["CMD", "nc", "-z", "127.0.0.1", "22"]
+      interval: 2s
+      timeout: 2s
+      retries: 15
+  app:
+    image: remotebackups:dev
+    depends_on:
+      sshd:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "8098:8080"
+    environment:
+      - REMOTE_HOST=nas.lan
+      - REMOTE_USER=backup
+      - TZ=Europe/Madrid
+      - UI_LOCALE=en-GB
+      - TRUENAS_API_KEY=demo-key
+      - TRUENAS_HOST=host.docker.internal:8443
+      - TRUENAS_POOL_ALIASES=tank:disk-0,vault:disk-1
+    volumes:
+      - keys:/run/secrets:ro
+      - ./config:/config
+      - ./data:/data:ro
+networks:
+  default:
+    name: remotebackups-demo
+volumes:
+  keys:
+  dest:
