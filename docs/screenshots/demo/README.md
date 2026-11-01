@@ -5,6 +5,9 @@ real host, user or folder names. The dev image, a real sshd reachable as `nas.la
 TrueNAS endpoint on the host, eight folders with generated files and a week of generated
 run history in the exact shape the application writes.
 
+`make build` at the repository root, then `docs/screenshots/demo/retake.sh` does all of the
+below and replaces the three files in `docs/screenshots/`. Step by step:
+
 ```bash
 make build                                                   # remotebackups:dev
 cd docs/screenshots/demo
