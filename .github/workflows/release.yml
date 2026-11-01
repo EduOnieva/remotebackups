@@ -70,7 +70,6 @@ jobs:
             # main is the last release, so the weekly rebuild refreshes its numbered tags too
             type=raw,value=${{ steps.version.outputs.version }},enable=${{ github.event_name != 'push' && github.ref == 'refs/heads/main' }}
             type=raw,value=${{ steps.version.outputs.major }},enable=${{ github.event_name != 'push' && github.ref == 'refs/heads/main' }}
-            type=sha,prefix=sha-
           labels: |
             org.opencontainers.image.title=remotebackups
             org.opencontainers.image.description=Scheduled rsync backups of home-server folders to another host, with a web UI
