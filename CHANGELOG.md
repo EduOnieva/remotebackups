@@ -18,6 +18,8 @@
 - A paused schedule reads "paused · will skip <date> (in N hours)" instead of three fragments.
 - The browser chrome on phones takes the page's background colour (`theme-color`).
 - No more `sha-<commit>` image tags: the version tags already pin a release, and the weekly rebuild moves both alike.
+- The CI checks run on pushes to `wip` as well; only `main` and `develop` publish images.
+- The README links its files and screenshots by absolute URL, so they work on the Docker Hub overview too.
 - The Tailscale sidecar in the example compose file follows `tailscale/tailscale:stable` instead of a pinned version that nothing updated; Tailscale keeps its development track under `unstable`, so `stable` is the newest release.
 
 ### Fixed
