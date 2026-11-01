@@ -2,10 +2,15 @@ name: Release
 
 # Image tags follow the branches: `develop` tracks the develop branch, `latest` tracks main,
 # and a `vX.Y` tag publishes X.Y and X and refreshes the Docker Hub overview.
+# The weekly run rebuilds main from scratch and republishes `latest`, X.Y and X, so base image
+# and Alpine package fixes reach the released image without a code change.
 on:
   push:
     branches: [main, develop]
     tags: ["v*"]
+  schedule:
+    - cron: "17 4 * * 1"
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -21,12 +26,16 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: the git tag must match the package version
-        if: startsWith(github.ref, 'refs/tags/')
+      - id: version
+        name: the package version, which a git tag must match
         run: |
-          tag="${GITHUB_REF_NAME#v}"
           version=$(grep -m1 '^version = ' pyproject.toml | sed 's/version = "\(.*\)"/\1/')
-          [ "$tag" = "$version" ] || { echo "tag v$tag but pyproject.toml says $version"; exit 1; }
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "major=${version%%.*}" >> "$GITHUB_OUTPUT"
+          if [ "${GITHUB_REF_TYPE}" = tag ]; then
+            tag="${GITHUB_REF_NAME#v}"
+            [ "$tag" = "$version" ] || { echo "tag v$tag but pyproject.toml says $version"; exit 1; }
+          fi
 
       - uses: docker/setup-qemu-action@v4
       - uses: docker/setup-buildx-action@v4
@@ -53,6 +62,9 @@ jobs:
             type=match,pattern=v(\d+)\.\d+,group=1
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
             type=raw,value=develop,enable=${{ github.ref == 'refs/heads/develop' }}
+            # main is the last release, so the weekly rebuild refreshes its numbered tags too
+            type=raw,value=${{ steps.version.outputs.version }},enable=${{ github.event_name != 'push' && github.ref == 'refs/heads/main' }}
+            type=raw,value=${{ steps.version.outputs.major }},enable=${{ github.event_name != 'push' && github.ref == 'refs/heads/main' }}
             type=sha,prefix=sha-
           labels: |
             org.opencontainers.image.title=remotebackups
@@ -68,6 +80,9 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           provenance: mode=max
           sbom: true
+          # A rebuild for base-image fixes must not reuse last week's apk layer
+          pull: true
+          no-cache: ${{ github.event_name != 'push' }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
