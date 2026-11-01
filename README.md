@@ -28,7 +28,7 @@ through Tailscale, or a machine on your LAN.
 - **TrueNAS SCALE aware.** Optional card with each pool's usage, health and last scrub plus the
   current alerts, from the TrueNAS API; `/api/pool_status` keeps the v1 shape for dashboards.
 
-![The dashboard](docs/screenshots/overview.png)
+![The dashboard](https://raw.githubusercontent.com/EduOnieva/remotebackups/main/docs/screenshots/overview.png)
 
 *The dashboard after a week of runs: status, destination and TrueNAS cards, the last run's log, the run history and the folders with their Run and Pause buttons.*
 
@@ -85,7 +85,7 @@ through Tailscale, or a machine on your LAN.
    ```
 
    For a destination reached through Tailscale, use
-   [`docker-compose.tailscale.yaml`](docker-compose.tailscale.yaml): the app runs behind the
+   [`docker-compose.tailscale.yaml`](https://github.com/EduOnieva/remotebackups/blob/main/docker-compose.tailscale.yaml): the app runs behind the
    official Tailscale sidecar, and the UI is then reachable only from your tailnet.
 
 3. `docker compose up -d`. The first start writes a commented `config/config.yaml`. Add the
@@ -131,11 +131,11 @@ stylesheet and script, on every page load, so the look can be adjusted without r
 image: override the colour variables (`--bg`, `--card`, `--accent`, `--ok`, `--warn`,
 `--danger`, `--log-bg`...), hide a card, or add a script. Edit the file and reload; no restart.
 
-![A run in progress](docs/screenshots/running.png)
+![A run in progress](https://raw.githubusercontent.com/EduOnieva/remotebackups/main/docs/screenshots/running.png)
 
 *A run in progress: the Status card shows the folder being copied and the elapsed time, the log streams live. The schedule is paused here, so the card says which run will be skipped.*
 
-<img src="docs/screenshots/phone.png" width="360" alt="The page on a phone">
+<img src="https://raw.githubusercontent.com/EduOnieva/remotebackups/main/docs/screenshots/phone.png" width="360" alt="The page on a phone">
 
 *On a phone: the same page, one column, with the paths folded away so the Run and Pause buttons stay in reach.*
 
@@ -266,7 +266,7 @@ from a script, add the header: `curl -X POST -H 'Content-Type: application/json'
 
 ## Networking
 
-- **Tailscale sidecar** ([`docker-compose.tailscale.yaml`](docker-compose.tailscale.yaml)):
+- **Tailscale sidecar** ([`docker-compose.tailscale.yaml`](https://github.com/EduOnieva/remotebackups/blob/main/docker-compose.tailscale.yaml)):
   the official `tailscale/tailscale` container joins your tailnet, and remotebackups shares
   its network namespace. Set `REMOTE_HOST` to the destination's tailnet IP or MagicDNS name.
   The UI is at `http://<node-name>:8080` from any device on the tailnet and is not published
@@ -334,7 +334,7 @@ Work happens on the `develop` branch, which publishes the `develop` image on eve
 release merges into `main` and tags `vX.Y`. The code layout, the test strategy, CI and the
 release steps are in the wiki's
 [Development](https://github.com/EduOnieva/remotebackups/wiki/Development) page.
-Security reports go through [`SECURITY.md`](SECURITY.md).
+Security reports go through [`SECURITY.md`](https://github.com/EduOnieva/remotebackups/blob/main/SECURITY.md).
 
 ## AI assistance
 
@@ -353,4 +353,4 @@ Version 2 shares no code with it but owes it the idea.
 
 ## License
 
-[MIT](LICENSE)
+[MIT](https://github.com/EduOnieva/remotebackups/blob/main/LICENSE)
