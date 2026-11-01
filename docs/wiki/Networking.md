@@ -18,7 +18,7 @@ the UI, and whether a reverse proxy sits in front of it.
 ```yaml
 services:
   tailscale:
-    image: tailscale/tailscale:v1.104.4
+    image: tailscale/tailscale:stable
     hostname: remotebackups            # the node name on the tailnet
     environment:
       - TS_AUTHKEY=tskey-auth-...

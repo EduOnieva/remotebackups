@@ -18,6 +18,7 @@
 - A paused schedule reads "paused · will skip <date> (in N hours)" instead of three fragments.
 - The browser chrome on phones takes the page's background colour (`theme-color`).
 - No more `sha-<commit>` image tags: the version tags already pin a release, and the weekly rebuild moves both alike.
+- The Tailscale sidecar in the example compose file follows `tailscale/tailscale:stable` instead of a pinned version that nothing updated; Tailscale keeps its development track under `unstable`, so `stable` is the newest release.
 
 ### Fixed
 - Log lines and paths broke words in the middle even when a space was available; they now wrap at spaces and split only a word longer than the line.
