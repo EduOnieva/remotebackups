@@ -186,7 +186,15 @@ async def test_mutating_routes_refuse_what_a_cross_site_form_can_send(
     assert (
         await client.post("/api/runs/current/cancel", headers={"Sec-Fetch-Site": "cross-site"})
     ).status_code == 403
-    assert harness.engine.starts and harness.engine.cancelled == []
+    # A browser without Sec-Fetch-Site still names the origin; only ours may pass, where
+    # "ours" behind a reverse proxy is what X-Forwarded-Host says
+    cancel = "/api/runs/current/cancel"
+    assert (await client.post(cancel, headers={"Origin": "http://evil.example"})).status_code == 403
+    assert (await client.post(cancel, headers={"Origin": "null"})).status_code == 403
+    assert (await client.post(cancel, headers={"Origin": "http://test"})).status_code == 202
+    proxied = {"Origin": "https://backups.example.net", "X-Forwarded-Host": "backups.example.net"}
+    assert (await client.post(cancel, headers=proxied)).status_code == 202
+    assert harness.engine.starts and harness.engine.cancelled == ["user", "user"]
 
 
 async def test_start_run_with_unknown_folder_is_400(client: AsyncClient) -> None:

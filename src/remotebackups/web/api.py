@@ -4,6 +4,7 @@ import logging
 import re
 from pathlib import Path
 from typing import Annotated, Any
+from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.responses import FileResponse, PlainTextResponse, StreamingResponse
@@ -50,10 +51,17 @@ def same_origin_json(request: Request) -> None:
     """Refuse what an HTML form on another site can send: the CSRF guard of a UI without login.
 
     A form cannot set a JSON content type, and browsers mark cross-site requests with
-    Sec-Fetch-Site. Scripts and curl add the header; the page's own fetch already does.
+    Sec-Fetch-Site, or at least with an Origin that is not ours (older Safari sends only the
+    latter). Scripts and curl add the header; the page's own fetch already does.
     """
     if request.headers.get("sec-fetch-site", "same-origin") not in ("same-origin", "none"):
         raise HTTPException(403, "cross-site request refused")
+    origin = request.headers.get("origin")
+    if origin is not None:
+        # Behind a reverse proxy the browser's host arrives in X-Forwarded-Host
+        ours = {request.headers.get("host"), request.headers.get("x-forwarded-host")}
+        if urlsplit(origin).netloc not in ours:
+            raise HTTPException(403, "cross-site request refused")
     media_type = request.headers.get("content-type", "").split(";")[0].strip().lower()
     if media_type != "application/json":
         raise HTTPException(403, "state changes need Content-Type: application/json")
@@ -322,7 +330,7 @@ def _exists(path: str) -> bool:
     return Path(path).is_dir()
 
 
-def _read_chunk(path: Any, offset: int, max_bytes: int) -> tuple[bytes, int]:
+def _read_chunk(path: Path, offset: int, max_bytes: int) -> tuple[bytes, int]:
     if not path.exists():
         return b"", 0
     size: int = path.stat().st_size
@@ -332,7 +340,7 @@ def _read_chunk(path: Any, offset: int, max_bytes: int) -> tuple[bytes, int]:
     return data, size
 
 
-def _read_tail(path: Any, tail: int) -> tuple[int, bytes, int]:
+def _read_tail(path: Path, tail: int) -> tuple[int, bytes, int]:
     """The last `tail` bytes, moved forward to the next line start so no line is cut."""
     if not path.exists():
         return 0, b"", 0
