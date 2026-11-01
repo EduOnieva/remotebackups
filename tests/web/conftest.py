@@ -175,6 +175,7 @@ async def client(harness: Harness) -> AsyncIterator[AsyncClient]:
         remote_status=lambda: harness.remote,
         probe_remote=harness.remote.probe,
         pauses=Pauses(harness.paths.pauses_file),
+        config_dir=harness.paths.config_dir,
         version="2.0.0-test",
         started_at=harness.clock.now(),
     )

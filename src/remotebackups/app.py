@@ -184,6 +184,7 @@ class Application:
             remote_status=lambda: self.remote_status,
             probe_remote=self.probe_remote,
             pauses=Pauses(self.paths.pauses_file),
+            config_dir=self.paths.config_dir,
             version=__version__,
             started_at=self.started_at,
         )

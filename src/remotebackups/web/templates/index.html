@@ -6,6 +6,7 @@
   <title>remotebackups</title>
   <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
   <link rel="stylesheet" href="/static/app.css">
+  {% if custom_css %}<link rel="stylesheet" href="/custom.css">{% endif %}
 </head>
 <body>
   <header>
@@ -106,5 +107,6 @@
 
   <div id="toast" hidden></div>
   <script src="/static/app.js"></script>
+  {% if custom_js %}<script src="/custom.js"></script>{% endif %}
 </body>
 </html>

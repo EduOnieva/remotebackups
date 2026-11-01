@@ -6,6 +6,7 @@ Tests hand in fakes; `Application` hands in the real engine, history and service
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import datetime
+from pathlib import Path
 from typing import Protocol
 
 from remotebackups.config import Config
@@ -57,5 +58,7 @@ class Services:
     remote_status: Callable[[], RemoteStatusLike]
     probe_remote: Callable[[], Awaitable[RemoteStatusLike]]
     pauses: Pauses
+    # Where custom.css and custom.js are looked up on every page load
+    config_dir: Path
     version: str
     started_at: datetime

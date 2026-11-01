@@ -367,3 +367,29 @@ async def test_static_assets_are_served(client: AsyncClient) -> None:
     assert (await client.get("/static/app.js")).status_code == 200
     assert (await client.get("/static/app.css")).status_code == 200
     assert (await client.get("/static/favicon.svg")).status_code == 200
+
+
+async def test_custom_css_and_js_are_loaded_only_when_present(
+    client: AsyncClient, harness: Harness
+) -> None:
+    page = (await client.get("/")).text
+    assert "/custom.css" not in page
+    assert "/custom.js" not in page
+    assert (await client.get("/custom.css")).status_code == 404
+    assert (await client.get("/custom.js")).status_code == 404
+
+    (harness.paths.config_dir / "custom.css").write_text(":root { --accent: hotpink; }\n")
+    (harness.paths.config_dir / "custom.js").write_text("console.log('hi');\n")
+    page = (await client.get("/")).text
+    # After the page's own files, so the user's rules win on equal specificity
+    assert page.index('href="/static/app.css"') < page.index('href="/custom.css"')
+    assert page.index('src="/static/app.js"') < page.index('src="/custom.js"')
+
+    css = await client.get("/custom.css")
+    assert css.status_code == 200
+    assert css.headers["content-type"].startswith("text/css")
+    assert css.headers["cache-control"] == "no-cache"
+    assert "hotpink" in css.text
+    js = await client.get("/custom.js")
+    assert js.headers["content-type"].startswith("text/javascript")
+    assert "console.log" in js.text
