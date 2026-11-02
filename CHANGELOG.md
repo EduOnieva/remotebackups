@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 2.5 - 2026-11-02
 
 ### Changed
 - The Folders column of the Runs table shows a run with failures as a red `15/16` instead of `15/16 (1 failed)`.
