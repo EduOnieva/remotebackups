@@ -267,6 +267,22 @@ async def test_log_tail_starts_at_a_line_boundary(client: AsyncClient, harness: 
     assert whole.headers["X-Log-Start"] == "0"
 
 
+async def test_log_tail_of_a_running_log_leaves_the_half_written_line_out(
+    client: AsyncClient, harness: Harness
+) -> None:
+    run_id = (await client.post("/api/runs")).json()["run_id"]
+    harness.history.log_path(run_id).write_text("started\ncopying a\npart")
+
+    response = await client.get(f"/api/runs/{run_id}/log?tail=1000")
+    assert response.text == "started\ncopying a\n"
+    assert response.headers["X-Log-Offset"] == "18", "where a stream picks the line up whole"
+    assert response.headers["X-Log-Complete"] == "false"
+
+    # No newline in the whole chunk: the cut is shown rather than nothing at all
+    harness.history.log_path(run_id).write_text("x" * 30)
+    assert (await client.get(f"/api/runs/{run_id}/log?tail=10")).text == "x" * 10
+
+
 async def test_log_download_serves_the_whole_file(client: AsyncClient, harness: Harness) -> None:
     run = harness.finished_run()
 

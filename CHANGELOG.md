@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+- The Folders column of the Runs table shows a run with failures as a red `15/16` instead of `15/16 (1 failed)`.
+
+### Fixed
+- Opening the page while a run was going replayed the whole log through the browser, which froze the page on a phone once the log had hundreds of thousands of lines. The page now loads the tail and streams from there; `GET /api/runs/{id}/log/stream` takes a `start` byte offset.
+- A long value in the Status or Remote card, such as the paused schedule line, ran past the card's edge on wide screens; values wrap now.
+
 ## 2.4 - 2026-11-01
 
 ### Added

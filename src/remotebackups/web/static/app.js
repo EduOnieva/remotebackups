@@ -273,13 +273,8 @@ function renderRuns() {
     const tr = document.createElement("tr");
     tr.dataset.id = r.id;
     if (r.id === selectedRun) tr.classList.add("selected");
-    const folders = cell(`${r.folders_ok}/${r.folders_total}`, "num");
-    if (r.folders_failed) {
-      const failed = document.createElement("span");
-      failed.className = "bad";
-      failed.textContent = ` (${r.folders_failed} failed)`;
-      folders.appendChild(failed);
-    }
+    // "15/16" in red says it: the failed folder is the one missing from the count
+    const folders = cell(`${r.folders_ok}/${r.folders_total}`, r.folders_failed ? "num bad" : "num");
     tr.append(
       cell(fmtTime(r.started_at)),
       cell(runKind(r)),
@@ -545,7 +540,7 @@ function closeStream() {
   if (stream) { stream.close(); stream = null; }
 }
 
-function follow(runId, startedAt) {
+async function follow(runId, startedAt) {
   closeStream();
   selectedRun = runId;
   liveRun = runId;
@@ -553,7 +548,21 @@ function follow(runId, startedAt) {
   resetLog(runId, startedAt, true);
   renderRuns();
   loadRunDetail(runId);
-  stream = new EventSource(`/api/runs/${runId}/log/stream`);
+  // Only the tail of what is already written, then the stream from where the tail ended:
+  // a page opened hours into a big run would otherwise replay every line through the browser
+  let start = 0;
+  try {
+    const response = await fetch(`/api/runs/${runId}/log?tail=${LOG_TAIL_BYTES}`);
+    if (!response.ok) throw new Error(await response.text());
+    const text = await response.text();
+    if (liveRun !== runId) return;
+    tailOnly = Number(response.headers.get("X-Log-Start")) > 0;
+    start = Number(response.headers.get("X-Log-Offset"));
+    text.split("\n").filter((l, i, a) => l || i < a.length - 1).forEach(appendLine);
+    flushLines();
+  } catch (e) { toast(e.message, true); }
+  if (liveRun !== runId || selectedRun !== runId) return;
+  stream = new EventSource(`/api/runs/${runId}/log/stream?start=${start}`);
   stream.addEventListener("line", (e) => appendLine(e.data));
   stream.addEventListener("end", () => { closeStream(); flushLines(); setLogTitle(runId, startedAt); loadRunDetail(runId); loadRuns(); loadStatus(); });
   stream.onerror = () => { /* the browser reconnects with Last-Event-ID on its own */ };

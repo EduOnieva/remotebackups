@@ -45,6 +45,22 @@ async def test_stream_resumes_from_last_event_id(client: AsyncClient, harness: H
     ]
 
 
+async def test_stream_starts_at_the_requested_offset(client: AsyncClient, harness: Harness) -> None:
+    run = harness.finished_run()
+    response = await client.get(f"/api/runs/{run.id}/log/stream?start=9")
+    assert [e for e in parse_events(response.text) if e[0] == "line"] == [
+        ("line", "line two", "18")
+    ]
+
+    # A reconnecting browser keeps `start` in the URL; what it already saw is in the header
+    response = await client.get(
+        f"/api/runs/{run.id}/log/stream?start=0", headers={"Last-Event-ID": "18"}
+    )
+    assert [e for e in parse_events(response.text) if e[0] == "line"] == []
+
+    assert (await client.get(f"/api/runs/{run.id}/log/stream?start=-1")).status_code == 422
+
+
 async def test_stream_follows_a_running_log_until_it_finishes(
     client: AsyncClient, harness: Harness
 ) -> None:

@@ -282,12 +282,20 @@ async def download_run_log(request: Request, run_id: RunId) -> FileResponse:
 
 
 @router.get("/runs/{run_id}/log/stream")
-async def stream_log(request: Request, run_id: RunId) -> StreamingResponse:
+async def stream_log(
+    request: Request, run_id: RunId, start: Annotated[int, Query(ge=0)] = 0
+) -> StreamingResponse:
+    """Lines from byte `start` on, then live. A reconnecting browser's `Last-Event-ID` wins.
+
+    The page opens a running log from the end of what it fetched with `tail`; without
+    `start`, a log of hundreds of thousands of lines would replay through the browser.
+    """
     svc = services(request)
     if svc.history.get(run_id) is None:
         raise HTTPException(404, f"run {run_id} not found")
-    last_event_id = request.headers.get("Last-Event-ID", "0")
-    start = int(last_event_id) if last_event_id.isdigit() else 0
+    last_event_id = request.headers.get("Last-Event-ID", "")
+    if last_event_id.isdigit():
+        start = int(last_event_id)
     poll = float(request.app.state.sse_poll_seconds)
     return StreamingResponse(
         stream_run_log(svc.history, run_id, start, poll_seconds=poll),
@@ -341,7 +349,11 @@ def _read_chunk(path: Path, offset: int, max_bytes: int) -> tuple[bytes, int]:
 
 
 def _read_tail(path: Path, tail: int) -> tuple[int, bytes, int]:
-    """The last `tail` bytes, moved forward to the next line start so no line is cut."""
+    """The last `tail` bytes, moved forward to the next line start so no line is cut.
+
+    A running log may end mid-line; that fragment is left out so the range ends at a line
+    boundary and a stream opened at `X-Log-Offset` delivers the line whole.
+    """
     if not path.exists():
         return 0, b"", 0
     size: int = path.stat().st_size
@@ -354,4 +366,8 @@ def _read_tail(path: Path, tail: int) -> tuple[int, bytes, int]:
         if newline >= 0:
             start += newline + 1
             data = data[newline + 1 :]
+    if data and not data.endswith(b"\n"):
+        last = data.rfind(b"\n")
+        if last >= 0:
+            data = data[: last + 1]
     return start, data, size

@@ -34,9 +34,7 @@ dl { display: grid; grid-template-columns: max-content 1fr; gap: 2px 12px; margi
 dl > div { display: contents; }
 dl > div[hidden] { display: none; }
 #progress-bar { margin: -2px 0 10px; }
-#last-run { white-space: normal; }
 #remote-details { margin: -4px 0 8px; }
-dd { white-space: nowrap; }
 dt { color: var(--muted); }
 dd { margin: 0; }
 .actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
@@ -112,7 +110,6 @@ tbody tr.selected { background: color-mix(in srgb, var(--accent) 16%, transparen
   /* Run, the two flags and Stop in one row at 360px: tighter padding, nothing wraps */
   .actions button { flex: 1 1 auto; min-width: 0; padding: 8px 6px; font-size: 14px; white-space: nowrap; }
   .big { font-size: 19px; overflow-wrap: anywhere; }
-  dd { white-space: normal; }
   .log { max-height: 60vh; font-size: 12px; }
   /* Files and bytes are in the log anyway; five columns is what fits without scrolling */
   .wide-only { display: none; }

@@ -26,7 +26,7 @@ curl -X POST -H 'Content-Type: application/json' http://remotebackups:8080/api/r
 | `GET /api/runs/{id}` | One run with its per-folder results and rsync statistics |
 | `GET /api/runs/{id}/log` | The log as text. `offset` and `max_bytes` (up to 1 MiB) read a chunk; `tail` reads the last N bytes from a line start |
 | `GET /api/runs/{id}/log/download` | The whole log file as a download |
-| `GET /api/runs/{id}/log/stream` | The log as Server-Sent Events, live while the run is going |
+| `GET /api/runs/{id}/log/stream` | The log as Server-Sent Events from byte `start`, live while the run is going |
 | `DELETE /api/runs` | Delete all history. 409 while a run is active |
 | `GET /api/config` | The effective configuration, secrets masked |
 | `GET /api/truenas` | Pools (usage, health, scrub) and alerts as the TrueNAS card shows them |
@@ -92,9 +92,9 @@ null when rsync printed no `--stats` block (it did not start, or was stopped ear
 and the range reaches the end. To follow a running log, call again with `offset` set to the
 last `X-Log-Offset`.
 
-`GET /api/runs/{id}/log/stream` is an SSE stream: `line` events carry one log line each,
-with the byte offset after it as the event id, so a client reconnecting with `Last-Event-ID`
-continues where it stopped; a `state` event carries the outcome when it changes; `end`
+`GET /api/runs/{id}/log/stream?start=0` is an SSE stream from byte `start`: `line` events
+carry one log line each, with the byte offset after it as the event id, so a client
+reconnecting with `Last-Event-ID` continues where it stopped (the header beats `start`); a `state` event carries the outcome when it changes; `end`
 closes the stream when the run is over and everything was sent. A comment line keeps the
 connection alive every 15 seconds of silence.
 
