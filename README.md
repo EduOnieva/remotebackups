@@ -30,7 +30,7 @@ through Tailscale, or a machine on your LAN.
 
 ![The dashboard](https://raw.githubusercontent.com/EduOnieva/remotebackups/main/docs/screenshots/overview.png)
 
-*The dashboard after a week of runs: status, destination and TrueNAS cards, the last run's log, the run history and the folders with their Run and Pause buttons.*
+*The dashboard after a week of runs: Status, Remote and TrueNAS cards, the last run's log, the run history and the folders with their Run and Pause buttons.*
 
 ## Quick start
 
@@ -176,7 +176,8 @@ under Compose's `secrets:`.
 | `UI_CLOCK` | `24h` | `24h` \| `12h`: hour format in the UI |
 | `WEB_PORT` | `8080` | Only needed when another service in the same network namespace uses 8080 |
 | `TZ` | `Etc/UTC` | Schedule and log timestamps |
-| `LOG_LEVEL` | `INFO` | `DEBUG` \| `INFO` \| `WARNING` \| `ERROR`: how much the application logs to stdout |
+| `LOG_LEVEL` | `INFO` | `DEBUG` \| `INFO` \| `WARNING` \| `ERROR`: how much the application logs to stderr |
+| `CONFIG_DIR`, `RUNTIME_DIR`, `SECRETS_DIR` | `/config`, `/run/remotebackups`, `/run/secrets` | Where the state, the runtime files and the key live; only for unusual layouts |
 | `FILE__<VAR>` | | Read `<VAR>` from a file instead of the environment; the recommended way to pass `TRUENAS_API_KEY` and `SSH_PASSWORD` |
 
 ### config.yaml
@@ -288,7 +289,7 @@ Linux host.
 
 ## Operations
 
-- **Logs.** The application logs to stdout (`docker logs remotebackups`); the compose files
+- **Logs.** The application logs to stderr (`docker logs remotebackups`); the compose files
   rotate them through Docker. Run logs are files under `config/runs/`, one per run, deleted
   after `HISTORY_KEEP_DAYS`.
 - **State.** Everything is under `/config`: `config.yaml`, `ssh/` (the pinned
@@ -298,14 +299,15 @@ Linux host.
   connection and the status says so. If the server was reinstalled, delete its line from
   `config/ssh/known_hosts`.
 - **Updating.** `docker compose pull && docker compose up -d`. Image tags follow the
-  branches: `latest` is `main`, which moves at releases; `2.1` pins a release and `2` its
+  branches: `latest` is `main`, which moves at releases; `2.6` pins a release and `2` its
   newest; `develop` is the `develop` branch, where changes land first. On Docker Hub
   (`eduonieva/remotebackups`) and GHCR (`ghcr.io/eduonieva/remotebackups`), for amd64 and arm64.
   The release tags are rebuilt every Monday from the same code, so fixes in the Python base
   image and Alpine packages arrive with a `pull`; the image carries no pip, so the only Python
   packages in it are the application's own.
 - **CLI.** `docker exec remotebackups remotebackups check-config | print-config --redact |
-  print-example-config | run-once [--delete] [--dry-run] [--folder NAME]`. After an upgrade,
+  print-example-config | run-once [--delete] [--dry-run] [--folder NAME] | healthcheck |
+  --version`. Without `--redact`, `print-config` prints the secrets in clear. After an upgrade,
   `print-example-config` shows the current template with any new keys; nothing in `/config`
   is rewritten behind your back.
 - **Something wrong.** The wiki's
@@ -324,7 +326,7 @@ routes JSON becomes `folders:` in `config.yaml`, the key is mounted at `/run/sec
 ## Development
 
 ```bash
-make install           # uv sync
+make install           # uv sync --frozen
 make check             # lock check, ruff, mypy --strict, unit and web tests (coverage gate 85 %)
 make build             # docker build -t remotebackups:dev .
 make test-integration  # real sshd + the image under test, then a docker stop mid-run

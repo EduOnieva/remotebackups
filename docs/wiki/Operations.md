@@ -57,9 +57,9 @@ active run is cancelled, then the web server closes. The compose files give it 3
 
 ## Logs and history
 
-The application itself logs to stdout: `docker logs remotebackups`. The compose files cap
-that at three files of 10 MB through Docker. `LOG_LEVEL=DEBUG` adds what each component
-decides and why.
+The application itself logs to stderr: `docker logs remotebackups`. The compose files cap
+that at three files of 10 MB through Docker. The application's own messages are at `INFO`
+and above; `LOG_LEVEL=DEBUG` only adds the debug output of the libraries it uses.
 
 Each run has a record and a log under `/config/runs/`, `<id>.json` and `<id>.log`. The log
 holds the engine's own lines, timestamped and tagged `[INFO]`, `[WARN]`, `[ERROR]`, and the
@@ -81,7 +81,12 @@ docker exec remotebackups remotebackups print-example-config    # the commented 
 docker exec remotebackups remotebackups run-once                # one run in the foreground, exit 0 when clean
 docker exec remotebackups remotebackups run-once --dry-run --folder documents
 docker exec remotebackups remotebackups run-once --delete
+docker exec remotebackups remotebackups healthcheck             # what Docker's HEALTHCHECK runs; exit 0 when /healthz answers 200
+docker exec remotebackups remotebackups --version
 ```
+
+`print-config` without `--redact` prints the SSH password and the TrueNAS API key in clear;
+keep `--redact` unless you need to see them. `--folder` can be given more than once.
 
 `run-once` takes the same lock as the service, so it refuses to overlap a run started from
 the UI, and the service's scheduler refuses to overlap it. Its run is recorded and shows in

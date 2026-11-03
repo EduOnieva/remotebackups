@@ -36,10 +36,11 @@ folders: []
 #    name: documents           # optional: defaults to the last part of source; must be unique
 #    excludes: ["*.tmp"]       # added to rsync.excludes for this folder
 #    extra_options: []
-#    allow_delete: true        # false makes "Run with delete" skip --delete for this folder
+#    allow_delete: true        # false: the --delete toggle skips this folder
 #    enabled: true             # false keeps it listed but skipped; the UI can also pause a folder until restart
 
-# Optional TrueNAS SCALE status (alert count and free space per pool) for /api/pool_status.
+# Optional TrueNAS SCALE status (pools, alerts) for the UI card and /api/pool_status. A pool's
+# space is its root dataset's `available`, in decimal TB.
 truenas:
   enabled: auto               # auto: on when an API key is set | true | false (TRUENAS_ENABLED)
   # host: null                # TRUENAS_HOST; defaults to remote.host

@@ -36,8 +36,10 @@ The theme itself is `ui.dark_theme` in the configuration; `html` carries
 
 ## Layout
 
-Every card has an id: `status-card`, `truenas-card`, `runs-card`, `folders-card`, and the
-log panel is `#log`. Hide the TrueNAS card and give the log more room:
+The Status, TrueNAS, Runs and Folders cards have ids: `status-card`, `truenas-card`,
+`runs-card`, `folders-card`. The Remote card and the log's card have none (target them with
+`.cards > .card:nth-child(2)` and `main > section.card`), and the log panel itself is
+`#log`. Hide the TrueNAS card and give the log more room:
 
 ```css
 #truenas-card { display: none; }

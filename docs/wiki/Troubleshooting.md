@@ -10,6 +10,11 @@ exist, so Docker created an empty directory: `docker exec remotebackups ls -la /
 shows a directory where a file should be. Write the host path in full (`~` is root's home
 under `sudo` or Portainer) and recreate the container. `SSH_KEY` points at another path.
 
+**`SSH key not found: ...`**
+`SSH_KEY` (or `remote.ssh_key`) names a file that does not exist; a relative path is looked
+up under `/run/secrets`. Fix the path or the mount, or unset `SSH_KEY` to use
+`/run/secrets/ssh_key`.
+
 **`SSH key ... cannot be used non-interactively (passphrase-protected or invalid)`**
 The key has a passphrase, or the file is not a private key (a public key, a certificate, an
 empty file from a bad mount). Generate one without a passphrase for these backups:
@@ -17,8 +22,22 @@ empty file from a bad mount). Generate one without a passphrase for these backup
 
 **`Configuration problems:` and the container exits with code 2**
 `config.yaml` or the environment is invalid; each line names the key and the problem, for
-example `folders[0].destination: must be an absolute path`. Unknown keys are refused too, so
+example `folders[0].destination: destination must be an absolute path`. Unknown keys are refused too, so
 check for typos. `remotebackups check-config` reproduces the check without starting anything.
+
+**`config: remote.host and remote.user are required to back up folders`**
+There is an enabled folder but no destination. Set `REMOTE_HOST` and `REMOTE_USER` (or
+`remote.host` and `remote.user`); when only one is missing, the line names only that one.
+
+**`truenas: truenas.enabled is true but no API key is configured`**
+`TRUENAS_ENABLED=true` forces the card on, and it needs a key. Pass `FILE__TRUENAS_API_KEY`,
+or use `auto`, which turns TrueNAS on only when a key is set.
+
+**`rsync.options: '--delete' is decided per run and cannot be set here`**
+`--delete`, `--dry-run` and `--timeout` (and any flag starting with them) are chosen per run,
+so `rsync.options`, `rsync.extra_options`, `RSYNC_EXTRA_OPTIONS` and a folder's
+`extra_options` refuse them. Remove the flag; use the toggles, `run-once --delete` or
+`schedule.rsync_timeout` instead.
 
 **`Cannot start: the web UI cannot listen on port 8080`** (exit 3)
 Something else in the container's network namespace already uses the port, typically with
@@ -37,6 +56,9 @@ With `tofu`, the destination's host key differs from the one pinned in
 `/config/ssh/known_hosts`; with `strict`, the host is not in that file yet. If the
 destination was reinstalled, delete its line from the file. If it was not, find out why
 before trusting the new key.
+
+**`remote.host is required to pin a host key`**
+`remote.host_key` is set but the host is not. Set `REMOTE_HOST`, or drop `host_key`.
 
 **`ssh: connect to host ... port 22: Connection refused`** or **`No route to host`**
 The address or port is wrong, SSH is not enabled on the destination, or a firewall is in
@@ -60,7 +82,7 @@ user). The exact login can be tried by hand with the generated configuration:
 Some files were not transferred; the lines above it in the log say which and why. The two
 usual causes: `preserve_ownership: true` with a destination user that is not root (every
 file "fails" at the ownership step), and files the container cannot read. The run is marked
-*completed with errors*; everything else was copied.
+*completed with errors*, or *failed* when every folder failed; everything else was copied.
 
 **`rsync exit 255: ssh could not connect or authenticate`**
 The same causes as a red Remote card; the ssh message is in the log just above. The Remote
@@ -88,6 +110,12 @@ One run at a time. Wait for it or press Stop.
 **`another process holds the run lock; is run-once active?`**
 A `run-once` from the CLI is in progress, or an earlier one was killed and its lock not
 released; the lock is a file lock, so a finished process always releases it.
+
+**`Scheduler cannot read the configuration, retrying every minute: ...`** and **`Scheduled run skipped, the configuration is invalid: ...`**
+`config.yaml` was edited into an invalid state while the container runs. The rest of the line
+names the problem, as in `Configuration problems:` above; fix the file and the log says
+`Scheduler can read the configuration again`. A manual run meanwhile answers 400 with
+`configuration is invalid: ...`.
 
 **`Scheduled run skipped: the schedule is paused from the UI`**
 Expected while the schedule is paused. **Resume schedule**, or restart the container, which
@@ -121,6 +149,17 @@ Pauses apply to the next run only, so the UI refuses them during one.
 **`folder ... is disabled in config.yaml; edit the file`** (400)
 A folder with `enabled: false` has no buttons; the file is the switch.
 
+**`there is no schedule to pause; schedule.cron is not set`** (400)
+`PUT /api/schedule` with scheduled runs disabled. Set `CRON_SCHEDULE` or `schedule.cron`; the
+UI hides **Pause schedule** while there is no schedule.
+
+**`cannot clear history while a run is active`** (409)
+**Clear history** waits for the run to end. Stop it first or try again afterwards.
+
+**`no run is active`** (404)
+`POST /api/runs/current/cancel` when nothing is running, usually a Stop that arrived just after
+the run finished. Nothing to do.
+
 **The log shows nothing until the run ends**
 A reverse proxy is buffering the event stream. The application asks it not to
 (`X-Accel-Buffering: no`); if the proxy ignores that, turn buffering off for the location.
@@ -139,6 +178,15 @@ certificate.
 **`API key rejected`**
 The key is wrong or was revoked. If it came from `FILE__TRUENAS_API_KEY`, check the file
 has only the key.
+
+**`DDP handshake rejected: ...`**
+Something answered at `wss://<TRUENAS_HOST>/websocket` but not as the TrueNAS API. Point
+`TRUENAS_HOST` at the NAS's web UI address, with `:port` when it is not on 443.
+
+**`DDP method ... failed: ...`**
+The NAS refused one of the calls the card makes (`alert.list`, `pool.query`,
+`pool.dataset.query`); the rest of the line is TrueNAS's own error. Check the API key's user
+may read pools, datasets and alerts.
 
 ## The Tailscale sidecar
 
@@ -160,6 +208,7 @@ signal; `-15` is SIGTERM from Stop.
 | 3 | errors selecting input/output files or dirs |
 | 4 | requested action not supported |
 | 5 | error starting client-server protocol |
+| 6 | daemon unable to append to log-file |
 | 10 | error in socket I/O |
 | 11 | error in file I/O |
 | 12 | error in rsync protocol data stream |
@@ -175,5 +224,5 @@ signal; `-15` is SIGTERM from Stop.
 | 35 | timeout waiting for daemon connection |
 | 255 | ssh could not connect or authenticate |
 
-23 and 24 mean data moved and some files did not; the run is *completed with errors* and
-the log lists them.
+23 and 24 mean data moved and some files did not; the run is *completed with errors* (or
+*failed* when every folder failed) and the log lists them.

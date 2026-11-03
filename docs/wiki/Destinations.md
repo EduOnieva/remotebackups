@@ -92,4 +92,4 @@ the exact same login can be tried by hand:
 docker exec -it remotebackups ssh -F /run/remotebackups/ssh/config backup@192.168.1.20 'echo ok'
 ```
 
-The UI's **Check now** button does the same and shows the first useful line of any error.
+The UI's **Check now** button does the same and shows the last line of ssh's error output.

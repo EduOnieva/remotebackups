@@ -43,12 +43,14 @@ docker exec remotebackups remotebackups print-config --redact  # the effective r
 | `UI_CLOCK` | `24h` | `24h` or `12h` |
 | `WEB_PORT` | `8080` | Only needed when another service in the same network namespace uses 8080, as with a Tailscale sidecar and Serve |
 | `TZ` | `Etc/UTC` | The schedule and every timestamp in logs |
-| `LOG_LEVEL` | `INFO` | `DEBUG`, `INFO`, `WARNING` or `ERROR` for the application log on stdout |
+| `LOG_LEVEL` | `INFO` | `DEBUG`, `INFO`, `WARNING` or `ERROR` for the application log on stderr |
 | `CONFIG_DIR` | `/config` | Where `config.yaml`, `ssh/` and `runs/` live; only for unusual layouts |
+| `RUNTIME_DIR` | `/run/remotebackups` | The generated ssh config, the key copy and the pause file; the compose files put it on a tmpfs |
+| `SECRETS_DIR` | `/run/secrets` | Where the key is expected (`ssh_key`) and where a relative `SSH_KEY` is looked up |
 | `FILE__<VAR>` | | Read `<VAR>` from the named file; wins over a plain `<VAR>`. The way to pass `TRUENAS_API_KEY` and `SSH_PASSWORD` |
 
-Every variable except `WEB_PORT`, `TZ`, `LOG_LEVEL` and `CONFIG_DIR` has a matching key in
-`config.yaml`; the table below says which.
+Every variable except `WEB_PORT`, `TZ`, `LOG_LEVEL`, `CONFIG_DIR`, `RUNTIME_DIR` and
+`SECRETS_DIR` has a matching key in `config.yaml`; the table below says which.
 
 ## config.yaml
 
@@ -127,7 +129,9 @@ hold a run forever. Manual runs are left alone, since someone is watching them.
 ### rsync
 
 `options` are the base flags for every rsync. `--delete`, `--dry-run` and `--timeout` are
-decided per run and are refused here. `preserve_ownership: false` adds `--no-owner
+decided per run and are refused here, in `extra_options` and in a folder's `extra_options`;
+the check matches the start of the flag, so `--delete-after` and `--timeout=60` are refused
+too. `preserve_ownership: false` adds `--no-owner
 --no-group`, because a destination user that is not root cannot change file ownership and
 plain `-a` would end every run with exit 23. `excludes` become `--exclude=` arguments; the
 defaults cover trash folders, OS metadata and Python virtualenvs.
@@ -143,7 +147,8 @@ flags, the excludes (global, then the folder's), `rsync.extra_options`, then the
 `..`. Both get a trailing slash on the command line, so the folder's contents land in the
 destination, not the folder itself.
 
-`name` defaults to the last part of `source` and must be unique; it is what the UI, the logs
+`name` defaults to the last part of `source` and must be unique, contain no `/` and have no
+leading or trailing spaces; a folder whose `source` is `/` needs one. It is what the UI, the logs
 and the API use, and what `run-once --folder` and the `folders` field of `POST /api/runs`
 accept. `enabled: false` keeps the folder listed with no buttons. A pause from the UI is the
 temporary version of that, forgotten at the next restart.
@@ -165,7 +170,8 @@ Useful per-folder options:
 See [[Destinations]] for creating the API key. `host` defaults to `remote.host`; set it when
 the web UI of the NAS is not on the SSH address, and add `:port` when it is not on 443.
 `pool_aliases` renames pools in the card and in `/api/pool_status`, so a dashboard keeps a
-stable key when a pool is rebuilt under another name.
+stable key when a pool is rebuilt under another name. `cache_seconds` may be `0`, which asks
+the NAS on every request.
 
 ### ui and history
 
@@ -173,3 +179,17 @@ stable key when a pool is rebuilt under another name.
 `keep_days` are deleted, records and logs together. A single run's log is capped at
 `max_log_bytes`; past the cap rsync lines are counted but not stored, the engine's own lines
 still are, and the run's detail says how many lines were dropped.
+
+### Limits
+
+Values outside these ranges are refused like any other mistake:
+
+| Key | Accepted |
+|---|---|
+| `remote.port` | 1 to 65535 |
+| `schedule.rsync_timeout` | 0 or more; 0 disables |
+| `truenas.cache_seconds` | 0 or more |
+| `history.keep_days` | 1 or more |
+| `history.max_log_bytes` | 1048576 (1 MiB) or more |
+| `ui.clock` | `24h` or `12h` |
+| `remote.host_key_policy` | `tofu`, `strict` or `insecure` |

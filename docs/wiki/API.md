@@ -17,22 +17,25 @@ curl -X POST -H 'Content-Type: application/json' http://remotebackups:8080/api/r
 | `GET /healthz` | `{"status": "ok", "version", "reasons": [], "next_run_at"}`; 503 with `"degraded"` when the scheduler loop is not running |
 | `GET /api/status` | State, current and last run, next scheduled run, remote reachability, UI settings |
 | `GET /api/folders` | The configured folders: enabled, paused, `allow_delete`, whether the source exists |
-| `PUT /api/folders/{name}` | Body `{"paused": true}` or `false`. 409 while a run is active, 400 for a folder disabled in the file |
-| `PUT /api/schedule` | Body `{"paused": true}` or `false`: skip scheduled runs until the container restarts. 400 when there is no schedule |
+| `PUT /api/folders/{name}` | Body `{"paused": true}` or `false`; answers the folder as `GET /api/folders` lists it. 409 while a run is active, 400 for a folder disabled in the file, 404 for an unknown one |
+| `PUT /api/schedule` | Body `{"paused": true}` or `false`: skip scheduled runs until the container restarts. Answers `{"cron": "30 2 * * 1", "paused": true, "next_run_at": "..."}`. 400 when there is no schedule |
 | `POST /api/runs` | Start a run; body `{"delete": false, "dry_run": false, "folders": ["documents"]}`, all optional. 202 with the run id, 409 while a run is active, 400 for an unknown folder or an invalid configuration |
 | `POST /api/runs/current/cancel` | Stop the active run. 202, or 404 when none is active |
 | `POST /api/remote/check` | Probe the SSH login now; answers like the `remote` object of the status |
 | `GET /api/runs?limit=20` | Run summaries, newest first, up to 500 |
 | `GET /api/runs/{id}` | One run with its per-folder results and rsync statistics |
 | `GET /api/runs/{id}/log` | The log as text. `offset` and `max_bytes` (up to 1 MiB) read a chunk; `tail` reads the last N bytes from a line start |
-| `GET /api/runs/{id}/log/download` | The whole log file as a download |
+| `GET /api/runs/{id}/log/download` | The whole log file as a download; 404 when the run has no log |
 | `GET /api/runs/{id}/log/stream` | The log as Server-Sent Events from byte `start`, live while the run is going |
-| `DELETE /api/runs` | Delete all history. 409 while a run is active |
+| `DELETE /api/runs` | Delete all history. 204, or 409 while a run is active |
 | `GET /api/config` | The effective configuration, secrets masked |
-| `GET /api/truenas` | Pools (usage, health, scrub) and alerts as the TrueNAS card shows them |
+| `GET /api/truenas` | Pools (usage, health, scrub) and alerts as the TrueNAS card shows them, below |
 | `GET /api/pool_status` | The v1 shape for dashboards, below |
 
-Run ids look like `20261101T114449Z-d781`: the UTC start time and four hex characters.
+Run ids look like `20261101T114449Z-d781`: the UTC start time and four hex characters. Every
+`/api/runs/{id}` path answers 404 for an id that is not a run. A body or query parameter of
+the wrong shape (`"folders": []`, `limit=0`, a missing `paused`) answers 422 with FastAPI's
+own description of the problem.
 
 ## The status
 
@@ -42,8 +45,8 @@ Run ids look like `20261101T114449Z-d781`: the UTC start time and four hex chara
   "current_run": null,
   "last_run": {
     "id": "20261101T114449Z-d781", "trigger": "manual", "delete": false, "dry_run": false,
-    "outcome": "completed", "started_at": "2026-11-01T12:44:49.312000+01:00",
-    "finished_at": "2026-11-01T12:45:52.104000+01:00", "duration_s": 62.79,
+    "outcome": "completed", "started_at": "2026-11-01T11:44:49.312000Z",
+    "finished_at": "2026-11-01T11:45:52.104000Z", "duration_s": 62.79,
     "folders_total": 8, "folder_names": ["documents", "photos", "..."],
     "folders_ok": 8, "folders_failed": 0, "files_transferred": 1, "bytes_sent": 250060676,
     "reason": null, "current_folder": null
@@ -53,17 +56,18 @@ Run ids look like `20261101T114449Z-d781`: the UTC start time and four hex chara
   "schedule_paused": false,
   "remote": {
     "host": "nas.lan", "user": "backup", "port": 22, "auth": "key", "host_key_policy": "tofu",
-    "ok": true, "message": "ok", "checked_at": "2026-11-01T12:44:30+01:00"
+    "ok": true, "message": "ok", "checked_at": "2026-11-01T11:44:30Z"
   },
   "truenas_enabled": true,
   "dark_theme": true, "locale": "en-GB", "clock": "24h",
-  "version": "2.3", "started_at": "2026-11-01T12:38:02+01:00"
+  "version": "2.6", "started_at": "2026-11-01T11:38:02Z"
 }
 ```
 
 `state` is `idle`, `running` or `cancelling`. `current_run` has the same shape as
 `last_run` while a run is active, with `current_folder` set. `outcome` is one of
 `running`, `completed`, `completed_with_errors`, `cancelled`, `failed`, `aborted`.
+Timestamps are UTC, except `next_run_at`, which is in `TZ`.
 
 ## A run's detail
 
@@ -97,6 +101,41 @@ carry one log line each, with the byte offset after it as the event id, so a cli
 reconnecting with `Last-Event-ID` continues where it stopped (the header beats `start`); a `state` event carries the outcome when it changes; `end`
 closes the stream when the run is over and everything was sent. A comment line keeps the
 connection alive every 15 seconds of silence.
+
+## TrueNAS
+
+`GET /api/truenas` is what the TrueNAS card draws, from the same cached query as
+`/api/pool_status`:
+
+```json
+{
+  "enabled": true, "fetched_at": "2026-11-03T10:48:12.520000Z", "error": null,
+  "pools": [
+    {
+      "name": "tank", "alias": "disk-0", "status": "ONLINE", "healthy": true,
+      "size": 15942918602752, "allocated": 9724180348928,
+      "free": 6218738253824, "available": 6081299300352,
+      "scrub_state": "FINISHED", "scrub_ended_at": "2026-10-25T10:48:12.520000Z", "scrub_errors": 0,
+      "used_pct": 61.0
+    }
+  ],
+  "alerts": [
+    {
+      "level": "WARNING", "text": "SMART: Device /dev/sdd, 2 Currently unreadable (pending) sectors.",
+      "since": "2026-11-01T10:48:12.520000Z", "dismissed": false, "rank": 3
+    }
+  ]
+}
+```
+
+Sizes are bytes. `free` is the pool's `FREE` from `pool.query`, which includes the space ZFS
+keeps back; `available` is the root dataset's `available` from `pool.dataset.query`, what can
+still be written, and is what the card and `/api/pool_status` show (`null` when TrueNAS did
+not return the root dataset). `used_pct` is `allocated` over `size`. `alias` follows
+`TRUENAS_POOL_ALIASES` and is the pool's name without one. `rank` orders the alerts, higher
+is more urgent: `INFO` 0, `NOTICE` 1, `WARNING` 3, `ERROR` 4, `CRITICAL` 5, `ALERT` 6,
+`EMERGENCY` 7, any other level 2. When the NAS cannot be reached, `error` carries the message
+and the lists are empty; without TrueNAS the answer is `{"enabled": false, ...}` with no pools.
 
 ## pool_status, the v1 shape
 
