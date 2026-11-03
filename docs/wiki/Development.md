@@ -13,7 +13,7 @@ make type              # mypy --strict
 make test              # unit and web tests with the coverage gate
 make fmt               # ruff format and the auto-fixes
 make build             # docker build -t remotebackups:dev .
-make run               # build, then docker compose up with the tracked docker-compose.yaml
+make run               # build, then docker compose up with that image (compose/docker-compose.dev.yml)
 make test-integration  # the compose stack in compose/: real sshd, the image, pytest, then a docker stop mid-run
 make clean             # remove the virtualenv, the tool caches, coverage data and __pycache__
 ```
@@ -45,7 +45,7 @@ tests/
                   FakeClock and the control file in tests/fakes
   web/            the API through httpx against the ASGI app, with fake engine and TrueNAS
   integration/    against the compose stack: real sshd, key and password users, a stop mid-run
-compose/          the integration stack and its sshd image
+compose/          the integration stack, its sshd image, and make run's override
 docs/wiki/        these pages; pushed to the GitHub wiki
 ```
 

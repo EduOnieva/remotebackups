@@ -1,0 +1,6 @@
+# `make run` layers this on docker-compose.yaml so it starts the image it just built,
+# not the published one that file names.
+services:
+  remotebackups:
+    image: ${IMAGE:?set by make run}
+    pull_policy: never

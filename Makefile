@@ -34,7 +34,7 @@ build:  ## Build the image for this machine
 	docker build -t $(IMAGE) .
 
 run: build  ## Run the app-only compose file against the local image
-	IMAGE=$(IMAGE) docker compose up
+	IMAGE=$(IMAGE) docker compose -f docker-compose.yaml -f compose/docker-compose.dev.yml up
 
 test-integration:  ## Real sshd + the image under test; then docker stop mid-run
 	$(TEST_STACK) down -v --remove-orphans
