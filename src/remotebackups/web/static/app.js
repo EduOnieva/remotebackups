@@ -101,8 +101,9 @@ const fmtDuration = (s) => {
 const fmtBytes = (n) => {
   if (!n) return "0 B";
   const units = ["B", "KB", "MB", "GB", "TB"];
-  const i = Math.min(units.length - 1, Math.floor(Math.log(n) / Math.log(1024)));
-  return `${(n / 1024 ** i).toFixed(i ? 1 : 0)} ${units[i]}`;
+  // Decimal units, like `df -H` and the disk labels; 1024 here labelled TiB as TB
+  const i = Math.min(units.length - 1, Math.floor(Math.log(n) / Math.log(1000)));
+  return `${(n / 1000 ** i).toFixed(i ? 1 : 0)} ${units[i]}`;
 };
 const label = (outcome) => {
   const words = outcome.replace(/_/g, " ");
@@ -420,7 +421,8 @@ function renderPool(pool) {
   bar.appendChild(fill);
   const detail = document.createElement("div");
   detail.className = "muted small";
-  let text = `${Math.round(pool.used_pct)}% used · ${fmtBytes(pool.free)} free of ${fmtBytes(pool.size)}`;
+  const free = pool.available == null ? "unknown" : fmtBytes(pool.available);
+  let text = `${Math.round(pool.used_pct)}% used · ${free} free of ${fmtBytes(pool.size)}`;
   if (pool.scrub_ended_at) {
     const errors = pool.scrub_errors ? `${pool.scrub_errors} errors` : "no errors";
     text += ` · last scrub ${fmtDate(pool.scrub_ended_at)}, ${errors}`;

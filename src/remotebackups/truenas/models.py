@@ -1,4 +1,4 @@
-"""What the UI shows about the TrueNAS box, parsed from `pool.query` and `alert.list`."""
+"""What the UI shows about the TrueNAS box: pools, their root datasets' space, and alerts."""
 
 from datetime import UTC, datetime
 from typing import Any
@@ -25,6 +25,8 @@ class PoolInfo(BaseModel):
     size: int
     allocated: int
     free: int
+    # The root dataset's `available`: what can still be written, `free` minus the slop space
+    available: int | None = None
     scrub_state: str | None = None
     scrub_ended_at: datetime | None = None
     scrub_errors: int | None = None
@@ -35,7 +37,10 @@ class PoolInfo(BaseModel):
         return round(self.allocated / self.size * 100, 1) if self.size else 0.0
 
     @classmethod
-    def from_api(cls, pool: dict[str, Any], aliases: dict[str, str]) -> "PoolInfo":
+    def from_api(
+        cls, pool: dict[str, Any], aliases: dict[str, str], available: int | None = None
+    ) -> "PoolInfo":
+        """`available` comes from the pool's root dataset; None when TrueNAS did not return it."""
         name = str(pool.get("name", "unknown"))
         scan = pool.get("scan") or {}
         return cls(
@@ -46,6 +51,7 @@ class PoolInfo(BaseModel):
             size=int(pool.get("size") or 0),
             allocated=int(pool.get("allocated") or 0),
             free=int(pool.get("free") or 0),
+            available=available,
             scrub_state=scan.get("state"),
             scrub_ended_at=parse_timestamp(scan.get("end_time")),
             scrub_errors=scan.get("errors"),

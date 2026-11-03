@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+- Sizes were divided by 1024 but labelled in decimal units, so a pool with 3.97 TB free showed `3.61 TB` and never matched `df -H` or the disk's label. Sizes in the UI and in `/api/pool_status` are decimal now (1 TB = 10¹² bytes).
+- The TrueNAS card and `/api/pool_status` showed the pool's `FREE`, which includes the space ZFS keeps back and cannot be written. They show the root dataset's `available` now, read with `pool.dataset.query`; a pool whose root dataset is missing shows `unknown`.
+
 ## 2.5 - 2026-11-02
 
 ### Changed

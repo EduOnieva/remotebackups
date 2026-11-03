@@ -1,4 +1,4 @@
-"""Read alerts and pool free space from TrueNAS over its DDP WebSocket API (blocking)."""
+"""Read alerts and pool space from TrueNAS over its DDP WebSocket API (blocking)."""
 
 import json
 import logging
@@ -14,7 +14,23 @@ from remotebackups.truenas.models import AlertInfo, PoolInfo
 
 logger = logging.getLogger(__name__)
 
-TIB = 1024**4
+# Decimal, like `df -H` and the disk vendors; ZFS's own "T" is TiB, 10% bigger
+TB = 1000**4
+
+
+def root_datasets_query(pools: list[dict[str, Any]]) -> list[Any]:
+    """Filters and options for `pool.dataset.query`: each pool's root dataset, `available` only."""
+    names = [str(p.get("name")) for p in pools]
+    return [
+        [["id", "in", names]],
+        {
+            "extra": {
+                "retrieve_children": False,
+                "properties": ["available"],
+                "retrieve_user_props": False,
+            }
+        },
+    ]
 
 
 @dataclass(frozen=True)
@@ -47,7 +63,11 @@ class TrueNASClient:
         self._timeout = timeout_seconds
 
     def get_pool_status(self) -> dict[str, int | str]:
-        """`{"alerts": n, "<alias or pool>": "X TB", ...}`, or `{"error": "..."}`."""
+        """`{"alerts": n, "<alias or pool>": "X TB", ...}`, or `{"error": "..."}`.
+
+        X is the space left to write (the root dataset's `available`) in decimal TB, or
+        "unknown" when TrueNAS did not return the root dataset.
+        """
         return self.query().result
 
     def query(self) -> PoolStatus:
@@ -66,6 +86,9 @@ class TrueNASClient:
                 raise RuntimeError("API key rejected")
             alerts = self._call(ws, "alert.list") or []
             pools = self._call(ws, "pool.query") or []
+            datasets = (
+                self._call(ws, "pool.dataset.query", root_datasets_query(pools)) if pools else []
+            )
         except Exception as exc:
             # A NAS that is off or asleep is expected; the caller decides how loud to be
             return PoolStatus({"error": f"Failed to connect to TrueNAS: {exc}"})
@@ -80,10 +103,19 @@ class TrueNASClient:
         parsed_alerts = tuple(
             sorted((AlertInfo.from_api(a) for a in alerts), key=lambda a: -a.rank)
         )
-        parsed_pools = tuple(PoolInfo.from_api(p, self._aliases) for p in pools)
+        available = {
+            str(d["id"]): int(d["available"]["parsed"])
+            for d in datasets or []
+            if (d.get("available") or {}).get("parsed") is not None
+        }
+        parsed_pools = tuple(
+            PoolInfo.from_api(p, self._aliases, available.get(str(p.get("name")))) for p in pools
+        )
         for pool in parsed_pools:
             # Keyed by name (or its alias): TrueNAS ids are database rows that change on recreate
-            result[pool.alias] = f"{round(pool.free / TIB, 2)} TB"
+            result[pool.alias] = (
+                f"{round(pool.available / TB, 2)} TB" if pool.available is not None else "unknown"
+            )
         return PoolStatus(result, tuple(a.text for a in parsed_alerts), parsed_pools, parsed_alerts)
 
     def _call(self, ws: Any, method: str, params: list[Any] | None = None) -> Any:

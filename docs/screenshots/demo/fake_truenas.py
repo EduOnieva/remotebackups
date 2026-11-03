@@ -14,7 +14,14 @@ ALERTS = [
     {"level": "WARNING", "formatted": "SMART: Device /dev/sdd, 2 Currently unreadable (pending) sectors.",
      "datetime": {"$date": now_ms - 2 * DAY}, "dismissed": False},
 ]
-ANSWERS = {"auth.login_with_api_key": True, "alert.list": ALERTS, "pool.query": POOLS}
+# The root datasets: `available` is the pool's free space minus ZFS's 128 GiB slop space
+DATASETS = [{"id": p["name"], "type": "FILESYSTEM", "name": p["name"], "pool": p["name"],
+             "available": {"parsed": p["free"] - 128 * 1024**3, "rawvalue": str(p["free"] - 128 * 1024**3),
+                           "value": f"{(p['free'] - 128 * 1024**3) / 1024**4:.2f} TiB", "source": "NONE",
+                           "source_info": None}}
+            for p in POOLS]
+ANSWERS = {"auth.login_with_api_key": True, "alert.list": ALERTS, "pool.query": POOLS,
+           "pool.dataset.query": DATASETS}
 
 async def handler(ws):
     async for raw in ws:

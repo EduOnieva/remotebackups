@@ -101,11 +101,13 @@ connection alive every 15 seconds of silence.
 ## pool_status, the v1 shape
 
 ```json
-{"sync_errors": 0, "alerts": 1, "disk-0": "5.66 TB", "disk-1": "3.04 TB"}
+{"sync_errors": 0, "alerts": 1, "disk-0": "6.08 TB", "disk-1": "3.21 TB"}
 ```
 
 `sync_errors` is the number of folders that failed in the last finished run. `alerts` and
-one key per pool, with the free space, come from TrueNAS; the pool keys follow
+one key per pool come from TrueNAS. A pool's value is the space left to write, its root
+dataset's `available` in decimal TB (`zpool list` shows `FREE` in TiB, before ZFS's slop
+space), or `"unknown"` when the root dataset is missing; the pool keys follow
 `TRUENAS_POOL_ALIASES`. Without TrueNAS the answer is `{"sync_errors": 0, "truenas": "disabled"}`,
 and when the NAS cannot be reached `{"sync_errors": 0, "error": "Failed to connect to TrueNAS: ..."}`.
 

@@ -35,7 +35,8 @@ when the destination user is root and you want the original owners on the copy.
    Users → the user → API Keys* on current releases, the user menu's *API Keys* on older
    ones), and pass it as `FILE__TRUENAS_API_KEY` as shown in [[Installation]]. The card then
    shows each pool's usage, health and last scrub plus the current alerts, and
-   `/api/pool_status` carries the free space per pool for dashboards. The NAS is asked at
+   `/api/pool_status` carries the space left per pool for dashboards: the root dataset's
+   `available`, in decimal TB (ZFS's own `T` is TiB, so `zfs list` shows smaller numbers). The NAS is asked at
    most every `truenas.cache_seconds`.
 
    The certificate of a home NAS is usually self-signed, so `TRUENAS_VERIFY_TLS` defaults to

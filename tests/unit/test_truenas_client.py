@@ -7,6 +7,8 @@ from unittest.mock import patch
 from remotebackups.truenas.client import TrueNASClient
 
 TIB = 1024**4
+# ZFS keeps this much of the pool back (slop space), so `available` is below `free`
+SLOP = 128 * 1024**3
 
 Scripted = str | Callable[["FakeWebSocket"], str]
 
@@ -57,6 +59,26 @@ POOLS = [
         "scan": None,
     },
 ]
+
+
+def root_dataset(pool: dict[str, Any]) -> dict[str, Any]:
+    available = pool["free"] - SLOP
+    return {
+        "id": pool["name"],
+        "type": "FILESYSTEM",
+        "name": pool["name"],
+        "pool": pool["name"],
+        "available": {
+            "parsed": available,
+            "rawvalue": str(available),
+            "value": f"{available / TIB:.2f} TiB",
+            "source": "NONE",
+            "source_info": None,
+        },
+    }
+
+
+DATASETS = [root_dataset(p) for p in POOLS]
 ALERTS = [
     {
         "id": "f1e2",
@@ -79,13 +101,14 @@ def test_pool_status_keys_pools_by_name() -> None:
             result_for_last_request(True),
             result_for_last_request(ALERTS),
             result_for_last_request(POOLS),
+            result_for_last_request(DATASETS),
         ]
     )
     with patch("remotebackups.truenas.client.create_connection", return_value=ws):
         full = client().query()
     status = full.result
 
-    assert status == {"alerts": 1, "backup-disk-0": "3.42 TB", "backup-disk-1": "0.5 TB"}
+    assert status == {"alerts": 1, "backup-disk-0": "3.62 TB", "backup-disk-1": "0.41 TB"}
     assert full.alert_texts == ("Pool backup-disk-1 state is DEGRADED",)
 
     first, second = full.pools
@@ -95,6 +118,7 @@ def test_pool_status_keys_pools_by_name() -> None:
         True,
         51.1,
     )
+    assert first.available == int(3.42 * TIB) - SLOP
     assert first.scrub_state == "FINISHED"
     assert first.scrub_errors == 0
     assert first.scrub_ended_at == datetime(2026, 10, 28, 0, 0, tzinfo=UTC)
@@ -103,9 +127,12 @@ def test_pool_status_keys_pools_by_name() -> None:
     assert (alert.level, alert.rank, alert.dismissed) == ("WARNING", 3, False)
     assert alert.since == datetime(2026, 10, 29, 0, 0, tzinfo=UTC)
     methods = [m["method"] for m in ws.sent if m["msg"] == "method"]
-    assert methods == ["auth.login_with_api_key", "alert.list", "pool.query"]
+    assert methods == ["auth.login_with_api_key", "alert.list", "pool.query", "pool.dataset.query"]
     assert ws.sent[1]["params"] == ["1-testtoken"]
-    assert len({m["id"] for m in ws.sent if m["msg"] == "method"}) == 3, "one id per call"
+    filters, options = ws.sent[-1]["params"]
+    assert filters == [["id", "in", ["backup-disk-0", "backup-disk-1"]]]
+    assert options["extra"]["retrieve_children"] is False
+    assert len({m["id"] for m in ws.sent if m["msg"] == "method"}) == 4, "one id per call"
     assert ws.closed
 
 
@@ -116,11 +143,12 @@ def test_aliases_rename_pools_and_unlisted_pools_keep_their_name() -> None:
             result_for_last_request(True),
             result_for_last_request([]),
             result_for_last_request(POOLS),
+            result_for_last_request(DATASETS),
         ]
     )
     with patch("remotebackups.truenas.client.create_connection", return_value=ws):
         status = client(pool_aliases={"backup-disk-0": "disk-0"}).get_pool_status()
-    assert status == {"alerts": 0, "disk-0": "3.42 TB", "backup-disk-1": "0.5 TB"}
+    assert status == {"alerts": 0, "disk-0": "3.62 TB", "backup-disk-1": "0.41 TB"}
 
 
 def test_unrelated_messages_are_skipped() -> None:
@@ -134,11 +162,28 @@ def test_unrelated_messages_are_skipped() -> None:
             json.dumps({"msg": "result", "id": "someone-elses-call", "result": "ignored"}),
             result_for_last_request([]),
             result_for_last_request(POOLS[:1]),
+            result_for_last_request(DATASETS[:1]),
         ]
     )
     with patch("remotebackups.truenas.client.create_connection", return_value=ws):
         status = client().get_pool_status()
-    assert status == {"alerts": 0, "backup-disk-0": "3.42 TB"}
+    assert status == {"alerts": 0, "backup-disk-0": "3.62 TB"}
+
+
+def test_pool_without_its_root_dataset_reports_unknown() -> None:
+    ws = FakeWebSocket(
+        [
+            CONNECTED,
+            result_for_last_request(True),
+            result_for_last_request([]),
+            result_for_last_request(POOLS),
+            result_for_last_request(DATASETS[:1]),
+        ]
+    )
+    with patch("remotebackups.truenas.client.create_connection", return_value=ws):
+        full = client().query()
+    assert full.result == {"alerts": 0, "backup-disk-0": "3.62 TB", "backup-disk-1": "unknown"}
+    assert full.pools[1].available is None
 
 
 def test_ddp_error_is_reported() -> None:
