@@ -828,7 +828,7 @@ wheels = [
 
 [[package]]
 name = "remotebackups"
-version = "2.5"
+version = "2.6"
 source = { editable = "." }
 dependencies = [
     { name = "croniter" },
