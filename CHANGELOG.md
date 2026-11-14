@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 2.9 - 2026-11-14
 
 ### Changed
 - Dependabot's first round of version updates: pydantic 2.14.2 in the image, and newer artifact and Docker Hub description actions in the workflows.
