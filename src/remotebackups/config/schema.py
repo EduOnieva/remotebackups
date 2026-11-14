@@ -31,8 +31,14 @@ DEFAULT_EXCLUDES = [
     "desktop.ini",
     ".venv",
 ]
-# Decided per run (manual delete, scheduled timeout, dry run); never part of the options
+# Decided per run (manual delete, scheduled timeout, dry run); never part of the options.
+# Matched as prefixes, so --delete-after and --timeout=60 are caught too
 RUN_LEVEL_OPTIONS = ("--delete", "--timeout", "--dry-run")
+# rsync's other spellings of them: --del is --delete-during, -n is --dry-run
+RUN_LEVEL_ALIASES = frozenset({"--del"})
+RUN_LEVEL_SHORT = frozenset("n")
+# Short options whose value is the rest of the word (-T/tmp), so the letters after them are no flags
+SHORT_WITH_VALUE = frozenset("B@efMT")
 MIB = 1024 * 1024
 
 
@@ -94,11 +100,37 @@ class ScheduleConfig(StrictModel):
         return value
 
 
-def _reject_run_level_options(options: list[str]) -> list[str]:
+def _check_options(options: list[str]) -> list[str]:
+    """Each entry must be one whole option, and per-run options are refused in every spelling.
+
+    rsync reads a word without a leading dash as one more source to copy into the folder's
+    destination, so a value belongs in its option's entry: --exclude=*.tmp, not two entries.
+    """
     for option in options:
-        if option.startswith(RUN_LEVEL_OPTIONS):
+        if not option.startswith("-") or option in ("-", "--"):
+            raise ValueError(
+                f"'{option}' is not an option and rsync would copy it as a path; "
+                "give a value in the same entry as its option, as in --bwlimit=20m"
+            )
+        if (
+            option.startswith(RUN_LEVEL_OPTIONS)
+            or option.split("=", 1)[0] in RUN_LEVEL_ALIASES
+            or _short_flags(option) & RUN_LEVEL_SHORT
+        ):
             raise ValueError(f"'{option}' is decided per run and cannot be set here")
     return options
+
+
+def _short_flags(option: str) -> set[str]:
+    """The letters of a bundle such as -avz, up to one whose value fills the rest of the word."""
+    if option.startswith("--"):
+        return set()
+    flags: set[str] = set()
+    for letter in option[1:]:
+        flags.add(letter)
+        if letter in SHORT_WITH_VALUE:
+            break
+    return flags
 
 
 class RsyncConfig(StrictModel):
@@ -110,8 +142,8 @@ class RsyncConfig(StrictModel):
 
     @field_validator("options", "extra_options")
     @classmethod
-    def no_run_level_options(cls, value: list[str]) -> list[str]:
-        return _reject_run_level_options(value)
+    def valid_options(cls, value: list[str]) -> list[str]:
+        return _check_options(value)
 
 
 class FolderConfig(StrictModel):
@@ -135,8 +167,8 @@ class FolderConfig(StrictModel):
 
     @field_validator("extra_options")
     @classmethod
-    def no_run_level_options(cls, value: list[str]) -> list[str]:
-        return _reject_run_level_options(value)
+    def valid_options(cls, value: list[str]) -> list[str]:
+        return _check_options(value)
 
     @model_validator(mode="after")
     def default_name_from_source(self) -> Self:

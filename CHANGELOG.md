@@ -4,6 +4,12 @@
 
 ### Changed
 - `RSYNC_EXTRA_OPTIONS` is added after `rsync.extra_options` from `config.yaml` instead of replacing them, so a flag set in the environment no longer drops the file's own. On the command line the file's flags come first, so a value flag such as `--bwlimit` given in both places takes the environment's value.
+- Every entry of `rsync.options`, `rsync.extra_options`, `RSYNC_EXTRA_OPTIONS` and a folder's `extra_options` must be one whole option starting with `-`. A value goes in the same entry as its option (`--exclude=cache/`); a list with `["--exclude", "cache/"]` is now refused, so check your file after upgrading.
+
+### Fixed
+- A word without a dash in the options, such as `X` typed for `-X`, was passed to rsync, which read it as one more source and would copy whatever that path held into the folder's destination. Such an entry is now a configuration error.
+- `--del` (rsync's alias for `--delete-during`) and `-n` (`--dry-run`, also inside a bundle such as `-avn`) got past the check on per-run options, so a scheduled run could delete or a run could quietly do nothing. They are refused like `--delete` and `--dry-run`.
+
 ## 2.6 - 2026-11-03
 
 ### Changed

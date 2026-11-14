@@ -64,10 +64,28 @@ class TestRsync:
         assert parsed.preserve_ownership is False
         assert "lost+found" in parsed.excludes
 
-    @pytest.mark.parametrize("option", ["--delete", "--delete-after", "--timeout=60", "--dry-run"])
+    @pytest.mark.parametrize(
+        "option",
+        ["--delete", "--delete-after", "--timeout=60", "--dry-run", "--del", "-n", "-avn"],
+    )
     def test_run_level_options_are_rejected_in_base_options(self, option: str) -> None:
         with pytest.raises(ValidationError, match="decided per run"):
             RsyncConfig(options=["-a", option])
+
+    @pytest.mark.parametrize("word", ["X", "data", "/", "-", "--"])
+    def test_a_word_rsync_would_copy_as_a_path_is_rejected(self, word: str) -> None:
+        with pytest.raises(ValidationError, match="is not an option and rsync would copy it"):
+            RsyncConfig(extra_options=["-X", word])
+
+    def test_a_value_in_its_own_entry_is_rejected(self) -> None:
+        with pytest.raises(ValidationError, match="'cache/' is not an option"):
+            RsyncConfig(extra_options=["--exclude", "cache/"])
+
+    @pytest.mark.parametrize(
+        "option", ["-avz", "--exclude=cache/", "--delay-updates", "-T/tmp/n", "--info=progress2"]
+    )
+    def test_ordinary_options_pass(self, option: str) -> None:
+        assert RsyncConfig(extra_options=[option]).extra_options == [option]
 
 
 class TestSchedule:

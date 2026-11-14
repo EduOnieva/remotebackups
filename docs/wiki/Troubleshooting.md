@@ -36,8 +36,14 @@ or use `auto`, which turns TrueNAS on only when a key is set.
 **`rsync.options: '--delete' is decided per run and cannot be set here`**
 `--delete`, `--dry-run` and `--timeout` (and any flag starting with them) are chosen per run,
 so `rsync.options`, `rsync.extra_options`, `RSYNC_EXTRA_OPTIONS` and a folder's
-`extra_options` refuse them. Remove the flag; use the toggles, `run-once --delete` or
+`extra_options` refuse them, as do their other spellings `--del` and `-n` (also inside a
+bundle such as `-avn`). Remove the flag; use the toggles, `run-once --delete` or
 `schedule.rsync_timeout` instead.
+
+**`folders[0].extra_options: 'X' is not an option and rsync would copy it as a path`**
+An entry in an options list does not start with `-`. rsync would take it as one more source
+and copy it into the folder's destination. Usually a typo (`X` for `-X`) or a value written
+as its own entry: write `--exclude=cache/` rather than `["--exclude", "cache/"]`.
 
 **`Cannot start: the web UI cannot listen on port 8080`** (exit 3)
 Something else in the container's network namespace already uses the port, typically with

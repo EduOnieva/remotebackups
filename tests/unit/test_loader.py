@@ -147,6 +147,16 @@ folders:
     ]
 
 
+def test_a_stray_word_in_a_folders_extra_options_is_reported(paths: ConfigPaths) -> None:
+    paths.config_file.write_text(MINIMAL + "    extra_options: [X]\n")
+    with pytest.raises(ConfigError) as exc:
+        load_config(paths, EnvSettings())
+    assert exc.value.problems == [
+        "folders[0].extra_options: 'X' is not an option and rsync would copy it as a path; "
+        "give a value in the same entry as its option, as in --bwlimit=20m"
+    ]
+
+
 def test_missing_required_field_is_reported(paths: ConfigPaths) -> None:
     paths.config_file.write_text("folders:\n  - source: /data/x\n")
     with pytest.raises(ConfigError) as exc:

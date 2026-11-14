@@ -131,7 +131,16 @@ hold a run forever. Manual runs are left alone, since someone is watching them.
 `options` are the base flags for every rsync. `--delete`, `--dry-run` and `--timeout` are
 decided per run and are refused here, in `extra_options` and in a folder's `extra_options`;
 the check matches the start of the flag, so `--delete-after` and `--timeout=60` are refused
-too. `preserve_ownership: false` adds `--no-owner
+too, and so are rsync's other spellings, `--del` and `-n` (alone or in a bundle like `-avn`).
+
+Every entry in these lists must be one whole option starting with `-`. rsync reads a word
+without a dash as one more source to copy into the folder's destination, so a stray `X`
+or `data` would add files you did not mean to back up; such an entry is refused. A value
+goes in the same entry as its option: `--exclude=cache/`, `--bwlimit=20m`, `-T/tmp`, not
+`["--exclude", "cache/"]`. The same holds for `RSYNC_EXTRA_OPTIONS`, which is split like a
+shell line: `--bwlimit=20m '--exclude=a b'`.
+
+`preserve_ownership: false` adds `--no-owner
 --no-group`, because a destination user that is not root cannot change file ownership and
 plain `-a` would end every run with exit 23. `excludes` become `--exclude=` arguments; the
 defaults cover trash folders, OS metadata and Python virtualenvs.
