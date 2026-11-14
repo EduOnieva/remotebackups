@@ -84,6 +84,13 @@ to `main` and `develop` and on tags:
 | tag `vX.Y` | `X.Y` and `X` |
 | every Monday, and on demand | `latest`, `X.Y` and `X` rebuilt from `main` |
 
+Nothing is pushed before it is tested: the Release workflow first builds the amd64 image and
+runs the integration stack against it, and the amd64 image it then pushes is that same
+build. The weekly and on-demand runs end with a Trivy scan of that image, which fails the run
+when a vulnerability has a fix the image lacks, whatever its severity; the image is already
+published by then, since a rebuilt image is better than the one it replaces. A failed Monday
+run therefore means either a broken build or something to ship.
+
 Images go to Docker Hub and GHCR for amd64 and arm64, with provenance and an SBOM. The
 runtime image is Alpine with rsync, openssh-client, sshpass and tini, plus the locked
 virtualenv, shipped as a single layer. The Python base image and uv are pinned by tag and

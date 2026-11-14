@@ -3,7 +3,7 @@ name: Release
 # Image tags follow the branches: `develop` tracks the develop branch, `latest` tracks main,
 # and a `vX.Y` tag publishes X.Y and X and refreshes the Docker Hub overview.
 # The weekly run rebuilds main and republishes `latest`, X.Y and X, so Alpine's package fixes
-# reach the released image without a code change.
+# reach the released image without a code change; it then scans what it published.
 on:
   push:
     branches: [main, develop]
@@ -55,6 +55,21 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # Nothing is pushed before it is tested: this is the amd64 image of the push below, built
+      # without the layer cache so `apk upgrade` takes the Alpine packages of the day
+      - name: build the candidate
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          load: true
+          tags: remotebackups:candidate
+          no-cache: true
+      # BUILDX_BUILDER: the stack's own images are built by the engine, as in the CI workflow
+      - name: integration stack against the candidate
+        run: |
+          docker run --rm --entrypoint sh remotebackups:candidate -c 'remotebackups --version; rsync --version | head -1; ssh -V'
+          BUILDX_BUILDER=default APP_IMAGE=remotebackups:candidate TEST_BUILD="sshd tests" make test-integration
+
       - id: meta
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
@@ -75,6 +90,8 @@ jobs:
             org.opencontainers.image.description=Scheduled rsync backups of home-server folders to another host, with a web UI
             org.opencontainers.image.licenses=MIT
 
+      # amd64 comes from this job's builder cache, so what is pushed is the candidate just
+      # tested; the builder started empty, so arm64 is built from scratch here as well
       - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
@@ -84,9 +101,6 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           provenance: mode=max
           sbom: true
-          # Every published image is built from scratch: a cached `apk upgrade` layer would
-          # ship the Alpine packages of the day it ran, and the cache saved only seconds
-          no-cache: true
 
       # Needs a Docker Hub token with read, write and delete scope; a read/write one gets a 403.
       # The image is already published by then, so a failure here never fails the release.
@@ -100,3 +114,15 @@ jobs:
           repository: ${{ env.IMAGE_DOCKERHUB }}
           short-description: Scheduled rsync backups of home-server folders to another host, with a web UI
           readme-filepath: ./README.md
+
+      # After the push on purpose: the rebuilt image is the best there is, so a finding must
+      # not hold it back. Any severity counts, since scanners disagree on it; what matters is
+      # that a fix exists and the image lacks it. The failed run is the weekly notice of that
+      - name: scan the weekly image for vulnerabilities that have a fix
+        if: github.event_name != 'push'
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: remotebackups:candidate
+          scanners: vuln
+          ignore-unfixed: true
+          exit-code: "1"
