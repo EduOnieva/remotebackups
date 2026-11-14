@@ -299,7 +299,7 @@ Linux host.
   connection and the status says so. If the server was reinstalled, delete its line from
   `config/ssh/known_hosts`.
 - **Updating.** `docker compose pull && docker compose up -d`. Image tags follow the
-  branches: `latest` is `main`, which moves at releases; `2.6` pins a release and `2` its
+  branches: `latest` is `main`, which moves at releases; `2.7` pins a release and `2` its
   newest; `develop` is the `develop` branch, where changes land first. On Docker Hub
   (`eduonieva/remotebackups`) and GHCR (`ghcr.io/eduonieva/remotebackups`), for amd64 and arm64.
   The release tags are rebuilt every Monday from the same code, so Alpine's fixes for the

@@ -60,7 +60,7 @@ own description of the problem.
   },
   "truenas_enabled": true,
   "dark_theme": true, "locale": "en-GB", "clock": "24h",
-  "version": "2.6", "started_at": "2026-11-01T11:38:02Z"
+  "version": "2.7", "started_at": "2026-11-01T11:38:02Z"
 }
 ```
 
