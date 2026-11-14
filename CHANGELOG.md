@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 2.8 - 2026-11-14
 
 ### Changed
 - `history.keep_days` is taken from the configuration of each run, like the folders: a new value in `config.yaml` applies at the next run's cleanup instead of at the next restart.
