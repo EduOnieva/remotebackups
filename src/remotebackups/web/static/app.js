@@ -109,8 +109,8 @@ const label = (outcome) => {
   const words = outcome.replace(/_/g, " ");
   return words.charAt(0).toUpperCase() + words.slice(1);
 };
-// A one-folder run names its folder, so a run started from the folder's row stays recognisable
-// The flags as the toggles spell them, so a row reads like the run that was started
+// The flags as the toggles spell them, so a row reads like the run that was started. A
+// one-folder run also names its folder, so one started from a folder's row stays recognisable
 const runKind = (r) => `${r.trigger}${r.delete ? " --delete" : ""}${r.dry_run ? " --dry-run" : ""}${r.folders_total === 1 ? ` · ${r.folder_names[0]}` : ""}`;
 // The file name in the title is the download link: a hint that the full log is one click away
 function setLogTitle(runId, startedAt, live = false) {

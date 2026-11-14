@@ -1,4 +1,5 @@
 from httpx import AsyncClient
+from pydantic import SecretStr
 
 from remotebackups.config import FolderConfig
 from remotebackups.sync import RunOutcome
@@ -305,7 +306,7 @@ async def test_clear_history(client: AsyncClient, harness: Harness) -> None:
 
 
 async def test_config_is_redacted(client: AsyncClient, harness: Harness) -> None:
-    harness.config.truenas.api_key = __import__("pydantic").SecretStr("1-secret")
+    harness.config.truenas.api_key = SecretStr("1-secret")
     body = (await client.get("/api/config")).json()
     assert body["folders"][0]["name"] == "docs"
     assert body["truenas"]["api_key"] == "**********"

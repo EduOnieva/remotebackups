@@ -53,7 +53,6 @@
 ### Added
 - `custom.css` and `custom.js` in the config folder are loaded after the page's own files, on every page load, so the look can be adjusted without rebuilding the image.
 - The release images are rebuilt every Monday from the same code, so base image and Alpine package fixes reach `latest`, `X.Y` and `X` without a code change.
-
 - A `SECURITY.md` with the private reporting channel and what is supported.
 - The wiki, kept in `docs/wiki/`: installation, every configuration key, destinations (TrueNAS SCALE, Synology, a Linux host), networking and reverse proxies, operations and restoring, troubleshooting by message, the API with dashboard examples, customising the UI, development, migrating from v1.
 
