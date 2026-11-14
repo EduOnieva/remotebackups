@@ -34,6 +34,11 @@ updates:
     groups:
       images:
         patterns: ["*"]
+    ignore:
+      # Patch releases only: the image moves to a new Python minor by hand, once every
+      # dependency ships a wheel for it on Alpine, which the build refuses to do without
+      - dependency-name: python
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
   # The test and demo stacks name images in compose files, which the docker ecosystem skips
   - package-ecosystem: docker-compose
     directories: ["/compose", "/docs/screenshots/demo"]

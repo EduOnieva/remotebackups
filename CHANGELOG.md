@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+- Dependabot's first round of version updates: pydantic 2.14.2 in the image, and newer artifact and Docker Hub description actions in the workflows.
+- Dependabot proposes only patch releases of the image's Python: a new minor is adopted by hand, once every dependency ships a wheel for it on Alpine.
+- The build takes uv from Docker Hub instead of ghcr.io. It is the same image, but Dependabot's 14-day cooldown finds no publication date on ghcr.io and skipped the wait there, offering a release two days old.
+
 ## 2.8 - 2026-11-14
 
 ### Changed

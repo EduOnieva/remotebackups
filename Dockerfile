@@ -4,8 +4,10 @@
 # then ship that filesystem as the only layer of an otherwise empty image.
 
 # Tag and digest: a tag can be pushed again with other contents, a digest cannot. Both images
-# are stages so that Dependabot, which reads FROM lines, keeps tag and digest current
-FROM ghcr.io/astral-sh/uv:0.13.6@sha256:af22a52f5eafef3d78e551599d405c02df61919d18028f0cea8eda93bc9986d0 AS uv
+# are stages so that Dependabot, which reads FROM lines, keeps tag and digest current.
+# uv from Docker Hub, not ghcr.io: same image, but Dependabot's cooldown needs a publication
+# date and only finds one there
+FROM astral/uv:0.13.6@sha256:af22a52f5eafef3d78e551599d405c02df61919d18028f0cea8eda93bc9986d0 AS uv
 FROM python:3.13.18-alpine3.24@sha256:9ef1a599f863231c3d91e941389bfdc4a2d6070557243d54df1a4e57015b960e AS base
 
 FROM base AS builder
