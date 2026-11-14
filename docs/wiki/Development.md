@@ -86,8 +86,9 @@ to `main` and `develop` and on tags:
 
 Images go to Docker Hub and GHCR for amd64 and arm64, with provenance and an SBOM. The
 runtime image is Alpine with rsync, openssh-client, sshpass and tini, plus the locked
-virtualenv; pip and the other interpreter tooling are removed, so the only Python packages
-present are the application's. To scan a build:
+virtualenv. The build runs `apk upgrade`, so Alpine's fixes for the base image's own
+packages arrive with the weekly rebuild. pip, the other interpreter tooling and SQLite are
+removed, so the only Python packages present are the application's. To scan a build:
 
 ```bash
 docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image remotebackups:dev
