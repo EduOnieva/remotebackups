@@ -82,13 +82,16 @@ to `main` and `develop` and on tags:
 | push to `develop` | `develop` |
 | push to `main` | `latest` |
 | tag `vX.Y` | `X.Y` and `X` |
-| every Monday, and on demand | `latest`, `X.Y` and `X` rebuilt from `main` without the layer cache |
+| every Monday, and on demand | `latest`, `X.Y` and `X` rebuilt from `main` |
 
 Images go to Docker Hub and GHCR for amd64 and arm64, with provenance and an SBOM. The
 runtime image is Alpine with rsync, openssh-client, sshpass and tini, plus the locked
-virtualenv. The build runs `apk upgrade`, so Alpine's fixes for the base image's own
-packages arrive with the weekly rebuild. pip, the other interpreter tooling and SQLite are
-removed, so the only Python packages present are the application's. To scan a build:
+virtualenv, shipped as a single layer. The Python base image and uv are pinned by tag and
+digest. The build runs `apk upgrade` and every published image is built without the layer
+cache, so Alpine's fixes for the base image's own packages arrive with each build, the
+weekly one included. pip, the other interpreter tooling, SQLite, the C headers and CPython's
+test modules are removed, and with one layer they are not left behind underneath; the only
+Python packages present are the application's. To scan a build:
 
 ```bash
 docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image remotebackups:dev

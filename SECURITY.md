@@ -13,5 +13,5 @@ Please do not describe it in a public pull request. Expect an answer within a we
 ## Supported versions
 
 The newest release only: `latest`, which is also the newest `X.Y` tag. A fix ships as a new
-release, and the weekly rebuild of the release tags picks up fixes in the base image and
-Alpine packages on its own.
+release, and the weekly rebuild of the release tags picks up Alpine's fixes for the image's
+system packages on its own.

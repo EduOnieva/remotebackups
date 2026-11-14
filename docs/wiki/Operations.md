@@ -81,7 +81,7 @@ docker exec remotebackups remotebackups print-example-config    # the commented 
 docker exec remotebackups remotebackups run-once                # one run in the foreground, exit 0 when clean
 docker exec remotebackups remotebackups run-once --dry-run --folder documents
 docker exec remotebackups remotebackups run-once --delete
-docker exec remotebackups remotebackups healthcheck             # what Docker's HEALTHCHECK runs; exit 0 when /healthz answers 200
+docker exec remotebackups remotebackups healthcheck             # what Docker's HEALTHCHECK asks; exit 0 when /healthz answers 200
 docker exec remotebackups remotebackups --version
 ```
 

@@ -2,8 +2,8 @@ name: Release
 
 # Image tags follow the branches: `develop` tracks the develop branch, `latest` tracks main,
 # and a `vX.Y` tag publishes X.Y and X and refreshes the Docker Hub overview.
-# The weekly run rebuilds main from scratch and republishes `latest`, X.Y and X, so base image
-# and Alpine package fixes reach the released image without a code change.
+# The weekly run rebuilds main and republishes `latest`, X.Y and X, so Alpine's package fixes
+# reach the released image without a code change.
 on:
   push:
     branches: [main, develop]
@@ -84,11 +84,9 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           provenance: mode=max
           sbom: true
-          # A rebuild for base-image fixes must not reuse last week's apk layer
-          pull: true
-          no-cache: ${{ github.event_name != 'push' }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # Every published image is built from scratch: a cached `apk upgrade` layer would
+          # ship the Alpine packages of the day it ran, and the cache saved only seconds
+          no-cache: true
 
       # Needs a Docker Hub token with read, write and delete scope; a read/write one gets a 403.
       # The image is already published by then, so a failure here never fails the release.

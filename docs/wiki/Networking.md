@@ -133,7 +133,8 @@ port 8080 answers.
 ## Ports and the healthcheck
 
 The web UI listens on 8080 inside the container; `WEB_PORT` changes that when something
-else in the same network namespace already uses it. The Docker `HEALTHCHECK` calls
-`remotebackups healthcheck`, which asks `/healthz` on that port, so it follows `WEB_PORT` on
-its own. `/healthz` answers 503 only when the scheduler loop has died; an unreachable
+else in the same network namespace already uses it. The Docker `HEALTHCHECK` asks `/healthz`
+on that port with busybox `wget`, so it follows `WEB_PORT` on its own and ignores any proxy
+variable; `remotebackups healthcheck` asks the same by hand. `/healthz` answers 503 only when
+the scheduler loop has died; an unreachable
 destination is shown in the UI and is not a health failure, because a sleeping NAS is normal.

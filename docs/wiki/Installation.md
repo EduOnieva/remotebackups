@@ -155,9 +155,10 @@ is not the case. The two capabilities are what root keeps.
 | `develop` | the `develop` branch, where changes land first |
 
 Published on Docker Hub (`eduonieva/remotebackups`) and GHCR (`ghcr.io/eduonieva/remotebackups`)
-for amd64 and arm64. The release tags are rebuilt every Monday from the same code, so fixes
-in the Python base image and Alpine packages arrive with a `docker compose pull`. The runtime
-image carries no pip; the only Python packages in it are the application's own.
+for amd64 and arm64. The release tags are rebuilt every Monday from the same code, so
+Alpine's fixes for the image's system packages arrive with a `docker compose pull`; a newer
+Python or library arrives with a release. The runtime image carries no pip; the only Python
+packages in it are the application's own.
 
 Updating is `docker compose pull && docker compose up -d`. Nothing in `/config` is rewritten
 on upgrade: `remotebackups print-example-config` prints the current template so you can see

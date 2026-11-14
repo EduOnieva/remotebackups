@@ -5,8 +5,11 @@
 ### Changed
 - `RSYNC_EXTRA_OPTIONS` is added after `rsync.extra_options` from `config.yaml` instead of replacing them, so a flag set in the environment no longer drops the file's own. On the command line the file's flags come first, so a value flag such as `--bwlimit` given in both places takes the environment's value.
 - Every entry of `rsync.options`, `rsync.extra_options`, `RSYNC_EXTRA_OPTIONS` and a folder's `extra_options` must be one whole option starting with `-`. A value goes in the same entry as its option (`--exclude=cache/`); a list with `["--exclude", "cache/"]` is now refused, so check your file after upgrading.
-- The image build upgrades the Alpine packages the Python base image ships, so the weekly rebuild picks up Alpine's security fixes (such as zlib's) as soon as they are published, instead of waiting for the base image to be republished.
+- The image build upgrades the Alpine packages the Python base image ships, and every published image is built without the layer cache, so Alpine's security fixes (such as zlib's) arrive with the next build, the weekly one included, instead of waiting for the base image to be republished.
 - SQLite and Python's `sqlite3` module are removed from the image. Nothing used them, and they were one more package for scanners to flag.
+- The image is a single layer and about a fifth smaller: what the build removes or upgrades (pip, SQLite, replaced Alpine packages) is no longer shipped in the base image's layers underneath. The C headers and CPython's own test modules are gone too.
+- The Python base image and uv are pinned by digest as well as by tag; Dependabot moves both.
+- Docker's health check asks `/healthz` with busybox `wget` instead of starting `remotebackups healthcheck` every 30 seconds. That command imports the whole application for one request, most of a second of CPU per check on a fast machine and more on a small one; it remains for use by hand.
 
 ### Fixed
 - A word without a dash in the options, such as `X` typed for `-X`, was passed to rsync, which read it as one more source and would copy whatever that path held into the folder's destination. Such an entry is now a configuration error.

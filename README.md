@@ -302,9 +302,10 @@ Linux host.
   branches: `latest` is `main`, which moves at releases; `2.6` pins a release and `2` its
   newest; `develop` is the `develop` branch, where changes land first. On Docker Hub
   (`eduonieva/remotebackups`) and GHCR (`ghcr.io/eduonieva/remotebackups`), for amd64 and arm64.
-  The release tags are rebuilt every Monday from the same code, so fixes in the Python base
-  image and Alpine packages arrive with a `pull`; the image carries no pip, so the only Python
-  packages in it are the application's own.
+  The release tags are rebuilt every Monday from the same code, so Alpine's fixes for the
+  image's system packages arrive with a `pull`; a newer Python or library arrives with a
+  release. The image carries no pip, so the only Python packages in it are the application's
+  own.
 - **CLI.** `docker exec remotebackups remotebackups check-config | print-config --redact |
   print-example-config | run-once [--delete] [--dry-run] [--folder NAME] | healthcheck |
   --version`. Without `--redact`, `print-config` prints the secrets in clear. After an upgrade,
