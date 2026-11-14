@@ -186,7 +186,9 @@ the NAS on every request.
 ### ui and history
 
 `locale` decides the date format in the page; `null` uses the browser's. Runs older than
-`keep_days` are deleted, records and logs together. A single run's log is capped at
+`keep_days` are deleted, records and logs together, at startup and after every run; each
+run uses the value the file has then, so a change needs no restart. A single run's log is
+capped at
 `max_log_bytes`; past the cap rsync lines are counted but not stored, the engine's own lines
 still are, and the run's detail says how many lines were dropped.
 

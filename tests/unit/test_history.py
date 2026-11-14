@@ -28,7 +28,7 @@ def record(history: RunHistory, clock: FakeClock, **overrides: object) -> RunRec
 
 
 def test_ids_sort_chronologically(tmp_path: Path, clock: FakeClock) -> None:
-    history = RunHistory(tmp_path, keep_days=40, clock=clock)
+    history = RunHistory(tmp_path, clock)
     first = history.new_run_id()
     clock.advance(1)
     second = history.new_run_id()
@@ -37,7 +37,7 @@ def test_ids_sort_chronologically(tmp_path: Path, clock: FakeClock) -> None:
 
 
 def test_save_get_list_last(tmp_path: Path, clock: FakeClock) -> None:
-    history = RunHistory(tmp_path, keep_days=40, clock=clock)
+    history = RunHistory(tmp_path, clock)
     older = record(history, clock)
     clock.advance(60)
     newer = record(history, clock)
@@ -51,7 +51,7 @@ def test_save_get_list_last(tmp_path: Path, clock: FakeClock) -> None:
 
 
 def test_unreadable_record_is_skipped(tmp_path: Path, clock: FakeClock) -> None:
-    history = RunHistory(tmp_path, keep_days=40, clock=clock)
+    history = RunHistory(tmp_path, clock)
     kept = record(history, clock)
     (tmp_path / "99999999T000000Z-zzzz.json").write_text("{not json")
     assert [r.id for r in history.list_runs()] == [kept.id]
@@ -60,11 +60,11 @@ def test_unreadable_record_is_skipped(tmp_path: Path, clock: FakeClock) -> None:
 def test_prune_removes_runs_older_than_keep_days_with_their_logs(
     tmp_path: Path, clock: FakeClock
 ) -> None:
-    history = RunHistory(tmp_path, keep_days=40, clock=clock)
+    history = RunHistory(tmp_path, clock)
     old = record(history, clock, started_at=clock.now() - timedelta(days=41))
     fresh = record(history, clock, started_at=clock.now() - timedelta(days=39))
 
-    assert history.prune() == 1
+    assert history.prune(40) == 1
     assert history.get(old.id) is None
     assert not history.log_path(old.id).exists()
     assert history.get(fresh.id) is not None
@@ -72,7 +72,7 @@ def test_prune_removes_runs_older_than_keep_days_with_their_logs(
 
 
 def test_clear_removes_everything(tmp_path: Path, clock: FakeClock) -> None:
-    history = RunHistory(tmp_path, keep_days=40, clock=clock)
+    history = RunHistory(tmp_path, clock)
     record(history, clock)
     record(history, clock)
     assert history.clear() == 4
@@ -80,7 +80,7 @@ def test_clear_removes_everything(tmp_path: Path, clock: FakeClock) -> None:
 
 
 def test_reconcile_marks_running_runs_as_aborted(tmp_path: Path, clock: FakeClock) -> None:
-    history = RunHistory(tmp_path, keep_days=40, clock=clock)
+    history = RunHistory(tmp_path, clock)
     finished = record(history, clock)
     crashed = record(
         history,

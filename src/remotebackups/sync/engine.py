@@ -179,7 +179,7 @@ class SyncEngine:
             )
             log.close()
             self._history.save(record)
-            self._history.prune()
+            self._history.prune(config.history.keep_days)
             if lock is not None:
                 lock.close()
             self._last = record

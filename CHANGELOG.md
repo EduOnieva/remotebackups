@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Changed
+- `history.keep_days` is taken from the configuration of each run, like the folders: a new value in `config.yaml` applies at the next run's cleanup instead of at the next restart.
 - The workflows pass zizmor's strictest audit except for one finding that needs a GitHub environment: a checkout no longer leaves the job's token in the working copy, the release job holds its own permissions instead of the whole workflow, and a newer CI run on the same branch replaces the one in progress.
 - Dependabot also reads the compose files of the test and demo stacks, whose `alpine` image the `docker` ecosystem did not see.
 - `main` cannot be force-pushed or deleted and a `v*` tag cannot be moved or deleted (repository rulesets); a workflow that states no permissions gets a read-only token.

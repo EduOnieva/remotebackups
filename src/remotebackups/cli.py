@@ -17,7 +17,7 @@ from pydantic import ValidationError
 from remotebackups import __version__
 from remotebackups.app import Application, WebStartError
 from remotebackups.clock import SystemClock
-from remotebackups.config import Config, ConfigError, EnvSettings, dump_config, load_config
+from remotebackups.config import ConfigError, EnvSettings, dump_config, load_config
 from remotebackups.config.loader import EXAMPLE_TEXT, ensure_config_files, format_validation_errors
 from remotebackups.logging_setup import configure_logging
 from remotebackups.paths import ConfigPaths
@@ -124,14 +124,12 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(f"Cannot start: {exc}", file=sys.stderr)
             return EXIT_START_ERROR
     options = RunOptions(delete=args.delete, dry_run=args.dry_run, folders=args.folders)
-    return asyncio.run(_run_once(paths, env, config, options))
+    return asyncio.run(_run_once(paths, env, options))
 
 
-async def _run_once(
-    paths: ConfigPaths, env: EnvSettings, config: Config, options: RunOptions
-) -> int:
+async def _run_once(paths: ConfigPaths, env: EnvSettings, options: RunOptions) -> int:
     clock = SystemClock()
-    history = RunHistory(paths.runs_dir, config.history.keep_days, clock)
+    history = RunHistory(paths.runs_dir, clock)
     history.reconcile_unfinished()
     engine = SyncEngine(lambda: load_config(paths, env), paths, history, clock)
 

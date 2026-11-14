@@ -151,7 +151,7 @@ class Harness:
 @pytest.fixture
 def harness(paths: ConfigPaths, clock: FakeClock, make_config: Callable[..., Config]) -> Harness:
     config = make_config()
-    history = RunHistory(paths.runs_dir, keep_days=40, clock=clock)
+    history = RunHistory(paths.runs_dir, clock)
     return Harness(
         paths=paths,
         config=config,

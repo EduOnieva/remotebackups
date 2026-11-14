@@ -2,6 +2,7 @@ import asyncio
 import fcntl
 import json
 from collections.abc import Callable
+from datetime import timedelta
 from pathlib import Path
 
 import pytest
@@ -14,6 +15,7 @@ from remotebackups.sync import (
     RunHistory,
     RunOptions,
     RunOutcome,
+    RunRecord,
     RunState,
     RunTrigger,
     SyncEngine,
@@ -27,7 +29,7 @@ pytestmark = pytest.mark.usefixtures("fake_bin", "ssh_key")
 
 @pytest.fixture
 def history(paths: ConfigPaths, clock: FakeClock) -> RunHistory:
-    return RunHistory(paths.runs_dir, keep_days=40, clock=clock)
+    return RunHistory(paths.runs_dir, clock)
 
 
 @pytest.fixture
@@ -240,6 +242,35 @@ async def test_lock_held_by_another_process_fails_the_run(
     assert record is not None
     assert record.outcome is RunOutcome.FAILED
     assert record.reason == "another process holds the run lock; is run-once active?"
+
+
+async def test_retention_follows_the_configuration_of_each_run(
+    paths: ConfigPaths, history: RunHistory, clock: FakeClock, make_config: Callable[..., Config]
+) -> None:
+    configs = [make_config(history={"keep_days": 40})]
+    engine = SyncEngine(lambda: configs[-1], paths, history, clock)
+    ten_days_old = RunRecord(
+        id=history.new_run_id(),
+        trigger=RunTrigger.SCHEDULED,
+        delete=False,
+        started_at=clock.now() - timedelta(days=10),
+        outcome=RunOutcome.COMPLETED,
+    )
+    history.save(ten_days_old)
+    history.log_path(ten_days_old.id).write_text("log\n")
+
+    clock.advance(60)
+    await engine.start(RunTrigger.MANUAL, RunOptions(folders=["docs"]))
+    await engine.wait()
+    assert history.get(ten_days_old.id) is not None, "inside the 40 days this run was given"
+
+    # config.yaml now says 7 days: the next run applies it, no restart in between
+    configs.append(make_config(history={"keep_days": 7}))
+    clock.advance(60)
+    await engine.start(RunTrigger.MANUAL, RunOptions(folders=["docs"]))
+    await engine.wait()
+    assert history.get(ten_days_old.id) is None
+    assert not history.log_path(ten_days_old.id).exists()
 
 
 async def test_wait_and_cancel_when_idle(engine: SyncEngine) -> None:

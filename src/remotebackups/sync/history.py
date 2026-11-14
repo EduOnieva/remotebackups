@@ -14,9 +14,8 @@ ABORTED_LINE = "[ERROR] Run aborted: the application stopped while this run was 
 
 
 class RunHistory:
-    def __init__(self, runs_dir: Path, keep_days: int, clock: Clock) -> None:
+    def __init__(self, runs_dir: Path, clock: Clock) -> None:
         self._dir = runs_dir
-        self._keep = timedelta(days=keep_days)
         self._clock = clock
 
     def new_run_id(self) -> str:
@@ -58,9 +57,13 @@ class RunHistory:
         records = self.list_runs(limit=1)
         return records[0] if records else None
 
-    def prune(self) -> int:
-        """Delete runs older than the retention window. Returns how many were removed."""
-        cutoff = self._clock.now() - self._keep
+    def prune(self, keep_days: int) -> int:
+        """Delete runs older than `keep_days`. Returns how many were removed.
+
+        The caller passes the value its configuration has now, so a changed
+        history.keep_days applies at the next run instead of at the next restart.
+        """
+        cutoff = self._clock.now() - timedelta(days=keep_days)
         removed = 0
         for record in self.list_runs():
             if record.started_at < cutoff:
@@ -68,7 +71,7 @@ class RunHistory:
                 self.log_path(record.id).unlink(missing_ok=True)
                 removed += 1
         if removed:
-            logger.info("Pruned %d run(s) older than %d days", removed, self._keep.days)
+            logger.info("Pruned %d run(s) older than %d days", removed, keep_days)
         return removed
 
     def clear(self) -> int:

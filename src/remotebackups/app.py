@@ -113,9 +113,9 @@ class Application:
             config.remote.host,
         )
 
-        self.history = RunHistory(self.paths.runs_dir, config.history.keep_days, self.clock)
+        self.history = RunHistory(self.paths.runs_dir, self.clock)
         self.history.reconcile_unfinished()
-        self.history.prune()
+        self.history.prune(config.history.keep_days)
         self.engine = SyncEngine(self.load_config, self.paths, self.history, self.clock)
         self.scheduler = CronScheduler(self.load_config, self.tz, self.engine, self.clock)
         self.truenas = TrueNASService(self.load_config, self.clock)
