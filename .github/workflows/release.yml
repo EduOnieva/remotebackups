@@ -28,6 +28,9 @@ jobs:
   publish:
     name: test, publish, scan
     runs-on: ubuntu-latest
+    # The Docker Hub credentials are this environment's secrets, and only main, develop and
+    # v* tags may use it: no other branch's workflow, and no job of another workflow, gets them
+    environment: release
     permissions:
       contents: read # check out the code
       packages: write # push the image to GHCR
