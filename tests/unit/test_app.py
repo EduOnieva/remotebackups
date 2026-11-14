@@ -194,7 +194,8 @@ async def test_busy_web_port_is_one_sentence_and_a_clean_exit(
 ) -> None:
     taken = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     taken.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    taken.bind(("0.0.0.0", 0))
+    # A listener on loopback is enough to make the port unavailable to the application
+    taken.bind(("127.0.0.1", 0))
     taken.listen(1)
     monkeypatch.setenv("WEB_PORT", str(taken.getsockname()[1]))
     try:

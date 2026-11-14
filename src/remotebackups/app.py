@@ -196,6 +196,8 @@ class Application:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         try:
+            # Every interface on purpose: a published port only reaches a server that listens
+            # beyond the container's loopback. Who may connect is the compose file's `ports`
             sock.bind(("0.0.0.0", self.env.web_port))
         except OSError as exc:
             sock.close()
