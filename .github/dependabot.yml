@@ -1,5 +1,7 @@
 # Version updates wait 14 days after a release (a hijacked release is usually pulled within
-# days); security updates are not subject to the cooldown. Work lands on develop, so do these.
+# days) and open against develop, where work lands. Security updates ignore both settings:
+# they open against main at once, and are retargeted to develop to ship with the next release.
+# This file is read from main, so a change here takes effect with the release that carries it.
 version: 2
 updates:
   - package-ecosystem: uv
@@ -31,4 +33,15 @@ updates:
       default-days: 14
     groups:
       images:
+        patterns: ["*"]
+  # The test and demo stacks name images in compose files, which the docker ecosystem skips
+  - package-ecosystem: docker-compose
+    directories: ["/compose", "/docs/screenshots/demo"]
+    target-branch: develop
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 14
+    groups:
+      compose-images:
         patterns: ["*"]

@@ -104,18 +104,33 @@ Python packages present are the application's. To scan a build:
 docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image remotebackups:dev
 ```
 
-Actions are pinned to commit SHAs; Dependabot keeps them, the Python lock file and the base
-images current, grouped, with a 14-day cooldown after a release.
+Actions are pinned to commit SHAs; Dependabot keeps them, the Python lock file, the base
+images and the images named in the test and demo compose files current, grouped, with a
+14-day cooldown after a release. Its configuration is read from `main`, and its security
+updates ignore the cooldown and the target branch: they open against `main` at once, so
+retarget them to `develop` (`gh pr edit N --base develop`) to ship with the next release.
+
+The workflows hold only what they need. Neither has a permission at the workflow level
+beyond reading the code, the release job alone may write packages, no checkout leaves its
+token in the working copy, and a newer CI run on the same branch replaces the one in
+progress. `uvx zizmor --offline --persona auditor .` audits them; the finding it still
+reports is that the Docker Hub credentials are repository secrets rather than the secrets of
+a GitHub environment limited to the release refs. In the repository's settings, rulesets
+keep `main` from being force-pushed or deleted and `v*` tags from being moved or deleted,
+and a workflow that declares no permissions gets a read-only token.
 
 ## Branches and releases
 
 Work happens on `develop`. `wip` is the scratch branch ahead of it. A release:
 
-1. Set `version` in `pyproject.toml` (two parts: after 2.5 comes 2.6) and turn the
-   changelog's *Unreleased* section into the version with the date.
-2. Commit on `develop`, merge `develop` into `main`, tag `vX.Y`, push both branches and the
-   tag. The Release workflow refuses a tag that does not match the package version.
+1. Set `version` in `pyproject.toml` (two parts: after 2.5 comes 2.6), run `uv lock` so the
+   lock file carries it, turn the changelog's *Unreleased* section into the version with the
+   date, and move the tag examples in the README and in the wiki's Installation and API pages.
+2. Commit on `develop`, fast-forward `main` to it, tag `vX.Y`, push both branches and the
+   tag. The Release workflow refuses a tag that does not match the package version, and the
+   tag cannot be moved afterwards.
 3. Create the GitHub release from the tag with the changelog section as its notes.
+4. Publish the wiki as below and fast-forward `wip` to `develop`.
 
 Commit messages are semantic (`fix:`, `feat:`, `docs:`, `ci:`, `build:`, `refactor:`,
 `style:`, `chore:`) with a short title and one explanatory paragraph.

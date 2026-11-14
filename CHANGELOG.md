@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+- The workflows pass zizmor's strictest audit except for one finding that needs a GitHub environment: a checkout no longer leaves the job's token in the working copy, the release job holds its own permissions instead of the whole workflow, and a newer CI run on the same branch replaces the one in progress.
+- Dependabot also reads the compose files of the test and demo stacks, whose `alpine` image the `docker` ecosystem did not see.
+- `main` cannot be force-pushed or deleted and a `v*` tag cannot be moved or deleted (repository rulesets); a workflow that states no permissions gets a read-only token.
+
 ## 2.7 - 2026-11-14
 
 ### Changed

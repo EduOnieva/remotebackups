@@ -12,9 +12,8 @@ on:
     - cron: "17 4 * * 1"
   workflow_dispatch:
 
-permissions:
-  contents: read
-  packages: write
+# Nothing by default: the job below states what it needs
+permissions: {}
 
 # Two pushes in quick succession must publish in order, not race for the same tag
 concurrency:
@@ -27,9 +26,16 @@ env:
 
 jobs:
   publish:
+    name: test, publish, scan
     runs-on: ubuntu-latest
+    permissions:
+      contents: read # check out the code
+      packages: write # push the image to GHCR
     steps:
+      # persist-credentials: no step pushes with git, so the token is not left in .git/config
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - id: version
         name: the package version, which a git tag must match
