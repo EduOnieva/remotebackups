@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+- `RSYNC_EXTRA_OPTIONS` is added after `rsync.extra_options` from `config.yaml` instead of replacing them, so a flag set in the environment no longer drops the file's own. On the command line the file's flags come first, so a value flag such as `--bwlimit` given in both places takes the environment's value.
 ## 2.6 - 2026-11-03
 
 ### Changed

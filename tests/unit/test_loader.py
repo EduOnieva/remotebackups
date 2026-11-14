@@ -77,6 +77,40 @@ def test_environment_overrides_the_file(
     assert config.schedule.cron is None
 
 
+def test_environment_extra_options_follow_the_files(
+    paths: ConfigPaths, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    paths.config_file.write_text(MINIMAL + 'rsync:\n  extra_options: ["--bwlimit=20m", "-h"]\n')
+    monkeypatch.setenv("RSYNC_EXTRA_OPTIONS", "--bwlimit=5m '--exclude=a b'")
+
+    config = load_config(paths, EnvSettings())
+    assert config.rsync.extra_options == ["--bwlimit=20m", "-h", "--bwlimit=5m", "--exclude=a b"]
+
+
+def test_environment_extra_options_alone_or_with_an_empty_file_list(
+    paths: ConfigPaths, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("RSYNC_EXTRA_OPTIONS", "--bwlimit=5m")
+    paths.config_file.write_text(MINIMAL)
+    assert load_config(paths, EnvSettings()).rsync.extra_options == ["--bwlimit=5m"]
+
+    paths.config_file.write_text(MINIMAL + "rsync:\n  extra_options: []\n")
+    assert load_config(paths, EnvSettings()).rsync.extra_options == ["--bwlimit=5m"]
+
+
+def test_malformed_file_extra_options_are_still_reported(
+    paths: ConfigPaths, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    paths.config_file.write_text(MINIMAL + "rsync:\n  extra_options: --bwlimit=20m\n")
+    monkeypatch.setenv("RSYNC_EXTRA_OPTIONS", "--bwlimit=5m")
+    # The environment's list is valid on its own; it must not hide the file's mistake
+    with pytest.raises(ConfigError) as exc:
+        load_config(paths, EnvSettings())
+    assert exc.value.problems == [
+        "rsync.extra_options: Input should be a valid list (got '--bwlimit=20m')"
+    ]
+
+
 def test_invalid_yaml_is_reported_with_the_file_name(paths: ConfigPaths) -> None:
     paths.config_file.write_text("folders: [unclosed")
     with pytest.raises(ConfigError) as exc:

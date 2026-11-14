@@ -25,7 +25,7 @@ schedule:
 rsync:
   options: ["-a", "-v", "-z", "--partial", "--stats"]   # base flags; --delete, --timeout and --dry-run are decided per run
   preserve_ownership: false   # true keeps owner and group; needs a root remote user (TrueNAS users are not)
-  extra_options: []           # appended to every folder, e.g. ["--bwlimit=20m"] (RSYNC_EXTRA_OPTIONS)
+  extra_options: []           # appended to every folder, e.g. ["--bwlimit=20m"]; RSYNC_EXTRA_OPTIONS adds after these
   excludes: ["*.Trash*", "lost+found", "System Volume Information", ".DS_Store", "Thumbs.db", "desktop.ini", ".venv"]
 
 # One entry per folder to back up. `source` is the path inside the container, which is the

@@ -31,7 +31,7 @@ docker exec remotebackups remotebackups print-config --redact  # the effective r
 | `SSH_HOST_KEY_POLICY` | `tofu` | `tofu` pins the host key on first use and refuses changes; `strict` requires an already known key; `insecure` ignores host keys |
 | `CRON_SCHEDULE` | `30 2 * * 1` | Five-field cron expression in `TZ`. Empty disables scheduled runs |
 | `SCHEDULED_RSYNC_TIMEOUT` | `3600` | Seconds of rsync inactivity before a *scheduled* run gives up on a folder (`--timeout`). `0` disables. Manual runs never time out |
-| `RSYNC_EXTRA_OPTIONS` | | Extra rsync flags for every folder, split like a shell line: `--bwlimit=20m --chmod=D755,F644` |
+| `RSYNC_EXTRA_OPTIONS` | | Extra rsync flags for every folder, split like a shell line: `--bwlimit=20m --chmod=D755,F644`. Added after `rsync.extra_options` from the file rather than replacing them, the one variable that adds instead of overriding |
 | `TRUENAS_API_KEY` | | Enables the TrueNAS card and the pool details in `/api/pool_status` |
 | `TRUENAS_HOST` | `REMOTE_HOST` | TrueNAS address when the API is not on the SSH host; may carry a port, `nas:8443` |
 | `TRUENAS_POOL_ALIASES` | | Rename pools in the UI and the API: `tank:disk-0,vault:disk-1` |
@@ -75,7 +75,7 @@ schedule:
 rsync:
   options: ["-a", "-v", "-z", "--partial", "--stats"]
   preserve_ownership: false   # true adds nothing; false adds --no-owner --no-group
-  extra_options: []           # RSYNC_EXTRA_OPTIONS; appended to every folder
+  extra_options: []           # appended to every folder; RSYNC_EXTRA_OPTIONS adds after these
   excludes: ["*.Trash*", "lost+found", "System Volume Information", ".DS_Store", "Thumbs.db", "desktop.ini", ".venv"]
 
 folders:
@@ -137,7 +137,8 @@ plain `-a` would end every run with exit 23. `excludes` become `--exclude=` argu
 defaults cover trash folders, OS metadata and Python virtualenvs.
 
 Flags go on the command line in this order: `options`, the ownership flags, the per-run
-flags, the excludes (global, then the folder's), `rsync.extra_options`, then the folder's
+flags, the excludes (global, then the folder's), `rsync.extra_options` (the file's, then
+`RSYNC_EXTRA_OPTIONS`), then the folder's
 `extra_options`, so a folder can override a global flag.
 
 ### folders

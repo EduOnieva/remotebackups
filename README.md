@@ -164,7 +164,7 @@ under Compose's `secrets:`.
 | `SSH_HOST_KEY_POLICY` | `tofu` | `tofu` \| `strict` \| `insecure`: pin the host key on first use and refuse changes, require an already known key, or ignore host keys |
 | `CRON_SCHEDULE` | `30 2 * * 1` | When scheduled runs happen. Empty disables them |
 | `SCHEDULED_RSYNC_TIMEOUT` | `3600` | Seconds of rsync inactivity before a *scheduled* run gives up on a folder. `0` disables. Manual runs never time out |
-| `RSYNC_EXTRA_OPTIONS` | | Extra rsync flags for every folder, e.g. `--bwlimit=20m` |
+| `RSYNC_EXTRA_OPTIONS` | | Extra rsync flags for every folder, e.g. `--bwlimit=20m`; added after `rsync.extra_options` from the file, not instead of them |
 | `TRUENAS_API_KEY` | | Enables the TrueNAS status card and `/api/pool_status` details |
 | `TRUENAS_HOST` | `REMOTE_HOST` | TrueNAS address when it differs from the SSH host |
 | `TRUENAS_POOL_ALIASES` | | Rename pools in the response: `tank:disk-0,vault:disk-1` |

@@ -26,9 +26,13 @@ class ConfigError(Exception):
 
 
 def load_config(paths: ConfigPaths, env: EnvSettings) -> Config:
-    """The effective configuration: defaults, then the file, then the environment."""
+    """The effective configuration: defaults, then the file, then the environment.
+
+    The environment overrides the file key by key, except RSYNC_EXTRA_OPTIONS, which adds to
+    the file's rsync.extra_options.
+    """
     file_values = _read_config_file(paths)
-    merged = _deep_merge(file_values, env.config_overrides())
+    merged = _deep_merge(file_values, _append_extra_options(file_values, env.config_overrides()))
     try:
         config = Config.model_validate(merged)
     except ValidationError as exc:
@@ -95,6 +99,26 @@ def _read_config_file(paths: ConfigPaths) -> dict[str, Any]:
     if not isinstance(loaded, dict):
         raise ConfigError([f"{paths.config_file}: the top level must be a mapping of sections"])
     return loaded
+
+
+def _append_extra_options(file_values: dict[str, Any], overrides: dict[str, Any]) -> dict[str, Any]:
+    """RSYNC_EXTRA_OPTIONS goes after the file's rsync.extra_options instead of replacing them.
+
+    The merge replaces lists whole; this list alone is joined, file first, so a value flag in
+    the environment still wins. A file value that is not a list is kept for validation to
+    report, rather than hidden behind the environment's.
+    """
+    env_options = overrides.get("rsync", {}).get("extra_options")
+    file_rsync = file_values.get("rsync")
+    file_options = file_rsync.get("extra_options") if isinstance(file_rsync, dict) else None
+    if env_options is None or file_options is None:
+        return overrides
+    rsync = dict(overrides["rsync"])
+    if isinstance(file_options, list):
+        rsync["extra_options"] = [*file_options, *env_options]
+    else:
+        del rsync["extra_options"]
+    return {**overrides, "rsync": rsync}
 
 
 def _deep_merge(base: dict[str, Any], overlay: dict[str, Any]) -> dict[str, Any]:
