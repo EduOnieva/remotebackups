@@ -328,7 +328,7 @@ routes JSON becomes `folders:` in `config.yaml`, the key is mounted at `/run/sec
 
 ```bash
 make install           # uv sync --frozen
-make check             # lock check, ruff, mypy --strict, unit and web tests (coverage gate 85 %)
+make check             # lock check, ruff, workflow linters, mypy --strict, unit and web tests (coverage gate 85 %)
 make build             # docker build -t remotebackups:dev .
 make test-integration  # real sshd + the image under test, then a docker stop mid-run
 ```

@@ -4,9 +4,9 @@
 
 ### Changed
 - `history.keep_days` is taken from the configuration of each run, like the folders: a new value in `config.yaml` applies at the next run's cleanup instead of at the next restart.
-- The workflows pass zizmor's strictest audit except for one finding that needs a GitHub environment: a checkout no longer leaves the job's token in the working copy, the release job holds its own permissions instead of the whole workflow, and a newer CI run on the same branch replaces the one in progress.
+- The workflows pass zizmor's strictest audit: a checkout no longer leaves the job's token in the working copy, the release job holds its own permissions instead of the whole workflow, a newer CI run on the same branch replaces the one in progress, and the Docker Hub credentials belong to a GitHub environment that only `main`, `develop` and `v*` tags may use. `make lint` now runs zizmor and actionlint over the workflows, so `make check` needs Docker.
 - Dependabot also reads the compose files of the test and demo stacks, whose `alpine` image the `docker` ecosystem did not see.
-- `main` cannot be force-pushed or deleted and a `v*` tag cannot be moved or deleted (repository rulesets); a workflow that states no permissions gets a read-only token.
+- `main` cannot be force-pushed or deleted and a `v*` tag cannot be moved or deleted (repository rulesets); a workflow that states no permissions gets a read-only token; CodeQL scans the code and the workflows.
 
 ### Fixed
 - The Troubleshooting page said a folder interrupted by Stop ends with rsync exit `-15`. It ends with 255 or 20; a negative code only appears when the process itself is killed, such as `-9` after the grace period.

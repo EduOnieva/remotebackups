@@ -6,9 +6,9 @@ under `src/`, installed into a virtualenv with [uv](https://docs.astral.sh/uv/).
 
 ```bash
 make install           # uv sync --frozen
-make check             # lock check, ruff format and lint, mypy --strict, unit and web tests, coverage gate 85 %
+make check             # lock check, ruff and the workflow linters, mypy --strict, unit and web tests, coverage gate 85 %
 make lock-check        # uv lock --check: pyproject.toml and uv.lock agree
-make lint              # ruff format --check and ruff check, no changes
+make lint              # ruff format --check and ruff check; zizmor and actionlint on the workflows (needs Docker); no changes
 make type              # mypy --strict
 make test              # unit and web tests with the coverage gate
 make fmt               # ruff format and the auto-fixes
@@ -45,7 +45,7 @@ tests/
                   FakeClock and the control file in tests/fakes
   web/            the API through httpx against the ASGI app, with fake engine and TrueNAS
   integration/    against the compose stack: real sshd, key and password users, a stop mid-run
-compose/          the integration stack, its sshd image, and make run's override
+compose/          the integration stack, its sshd image, make run's override, and the pin of the actionlint image
 docs/wiki/        these pages; pushed to the GitHub wiki
 ```
 
@@ -113,11 +113,15 @@ retarget them to `develop` (`gh pr edit N --base develop`) to ship with the next
 The workflows hold only what they need. Neither has a permission at the workflow level
 beyond reading the code, the release job alone may write packages, no checkout leaves its
 token in the working copy, and a newer CI run on the same branch replaces the one in
-progress. `uvx zizmor --offline --persona auditor .` audits them; the finding it still
-reports is that the Docker Hub credentials are repository secrets rather than the secrets of
-a GitHub environment limited to the release refs. In the repository's settings, rulesets
-keep `main` from being force-pushed or deleted and `v*` tags from being moved or deleted,
-and a workflow that declares no permissions gets a read-only token.
+progress. The Docker Hub credentials are the secrets of a GitHub environment, `release`,
+which only `main`, `develop` and `v*` tags may use, so no other branch's workflow and no job
+of the CI workflow can read them. `make lint` holds the workflows to all of this with
+zizmor's strictest persona and with actionlint.
+
+In the repository's settings, rulesets keep `main` from being force-pushed or deleted and
+`v*` tags from being moved or deleted, a workflow that declares no permissions gets a
+read-only token, and CodeQL's default setup scans the Python, the JavaScript and the
+workflows on `main` and on pull requests into it.
 
 ## Branches and releases
 

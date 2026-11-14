@@ -15,9 +15,14 @@ fmt:  ## Format and auto-fix
 	$(UV) run ruff format $(PY_TARGETS)
 	$(UV) run ruff check --fix $(PY_TARGETS)
 
+# The workflows too: zizmor offline (the audits that query GitHub need a token), and actionlint
+# from its author's image, named in a Dockerfile so that Dependabot keeps tag and digest current
 lint:  ## Formatting and lint checks, no changes
 	$(UV) run ruff format --check $(PY_TARGETS)
 	$(UV) run ruff check $(PY_TARGETS)
+	$(UV) run zizmor --offline --persona auditor .
+	docker run --rm -v "$(CURDIR):/repo:ro" -w /repo \
+		$$(sed -n 's/^FROM //p' compose/actionlint.Dockerfile) -color
 
 type:  ## Strict type check
 	$(UV) run mypy
