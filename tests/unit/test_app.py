@@ -3,6 +3,7 @@ import logging
 import os
 import signal
 import socket
+import urllib.request
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -92,6 +93,13 @@ async def test_web_server_answers_health_and_status(
     assert status.json()["schedule"] is None
 
     monkeypatch.setenv("WEB_PORT", str(app.web_port))
+    assert await asyncio.to_thread(main, ["healthcheck"]) == 0
+    # Docker hands the host's proxy settings to containers; the check must not leave through
+    # one. A real check is a new process, so no opener cached by the call above may answer
+    monkeypatch.setattr(urllib.request, "_opener", None)
+    monkeypatch.delenv("no_proxy", raising=False)
+    monkeypatch.delenv("NO_PROXY", raising=False)
+    monkeypatch.setenv("http_proxy", "http://127.0.0.1:1")
     assert await asyncio.to_thread(main, ["healthcheck"]) == 0
     monkeypatch.setenv("WEB_PORT", "1")  # nothing listens there
     assert await asyncio.to_thread(main, ["healthcheck"]) == 1

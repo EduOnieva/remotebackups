@@ -12,6 +12,7 @@
 - Docker's health check asks `/healthz` with busybox `wget` instead of starting `remotebackups healthcheck` every 30 seconds. That command imports the whole application for one request, most of a second of CPU per check on a fast machine and more on a small one; it remains for use by hand.
 
 ### Fixed
+- `remotebackups healthcheck` sent its request through `http_proxy` when the container had one (Docker passes the host's proxy settings to containers), so the container was reported unhealthy. Neither it nor the image's health check uses a proxy now.
 - A word without a dash in the options, such as `X` typed for `-X`, was passed to rsync, which read it as one more source and would copy whatever that path held into the folder's destination. Such an entry is now a configuration error.
 - `--del` (rsync's alias for `--delete-during`) and `-n` (`--dry-run`, also inside a bundle such as `-avn`) got past the check on per-run options, so a scheduled run could delete or a run could quietly do nothing. They are refused like `--delete` and `--dry-run`.
 

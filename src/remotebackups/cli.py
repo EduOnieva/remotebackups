@@ -144,10 +144,16 @@ async def _run_once(
 
 
 def healthcheck() -> int:
-    """The Docker HEALTHCHECK: no curl or wget needed, honours WEB_PORT."""
+    """Ask the local web server whether it is healthy; honours WEB_PORT.
+
+    The image's HEALTHCHECK asks the same with busybox wget, which costs far less per check.
+    """
     port = os.environ.get("WEB_PORT", "8080")
+    # Docker hands the host's proxy settings to containers as http_proxy; a request to
+    # ourselves must not leave through it
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
     try:
-        with urllib.request.urlopen(f"http://127.0.0.1:{port}/healthz", timeout=4) as response:
+        with opener.open(f"http://127.0.0.1:{port}/healthz", timeout=4) as response:
             return 0 if response.status == 200 else 1
     except (urllib.error.URLError, OSError) as exc:
         print(f"unhealthy: {exc}", file=sys.stderr)
