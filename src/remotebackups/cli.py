@@ -82,8 +82,17 @@ def main(argv: Sequence[str] | None = None) -> int:
     paths = ConfigPaths(
         config_dir=env.config_dir, runtime_dir=env.runtime_dir, secrets_dir=env.secrets_dir
     )
-    paths.ensure()
-    ensure_config_files(paths)
+    try:
+        paths.ensure()
+        ensure_config_files(paths)
+    except OSError as exc:
+        # A read-only container whose /config mount or runtime tmpfs is missing ends here
+        print(
+            f"Cannot start: cannot write {exc.filename} ({exc.strerror}); {paths.config_dir} "
+            f"needs a mounted folder, and {paths.runtime_dir} a tmpfs in a read-only container",
+            file=sys.stderr,
+        )
+        return EXIT_START_ERROR
     try:
         config = load_config(paths, env)
     except ConfigError as exc:

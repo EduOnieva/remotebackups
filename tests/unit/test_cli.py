@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 
 from remotebackups import __version__
@@ -107,3 +109,20 @@ def test_run_reports_an_invalid_config_and_exits_2(
 
     assert main(["run"]) == 2
     assert "schedule.cron: is not a valid cron expression" in capsys.readouterr().err
+
+
+def test_unwritable_config_dir_is_one_sentence_and_exit_3(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # A regular file where the parent should be: creating the directory fails for any user
+    blocker = tmp_path / "not-a-directory"
+    blocker.write_text("")
+    monkeypatch.setenv("CONFIG_DIR", str(blocker / "config"))
+    monkeypatch.setenv("RUNTIME_DIR", str(tmp_path / "run"))
+
+    assert main(["run"]) == 3
+    assert capsys.readouterr().err == (
+        f"Cannot start: cannot write {blocker / 'config'} (Not a directory); "
+        f"{blocker / 'config'} needs a mounted folder, and {tmp_path / 'run'} a tmpfs in a "
+        "read-only container\n"
+    )

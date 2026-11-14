@@ -47,7 +47,8 @@ ENV PATH=/opt/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/
     PYTHONDONTWRITEBYTECODE=1 \
     CONFIG_DIR=/config \
     TZ=Etc/UTC
-VOLUME ["/config"]
+# No VOLUME for /config: Docker would back a forgotten mount with an anonymous volume, which
+# looks like a mount to the startup warning meant to catch exactly that
 EXPOSE 8080
 # busybox wget, not `remotebackups healthcheck`: starting Python and importing the application
 # for every check costs far more than the check. -Y off: a proxy variable must not capture it

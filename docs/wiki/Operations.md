@@ -91,7 +91,8 @@ keep `--redact` unless you need to see them. `--folder` can be given more than o
 `run-once` takes the same lock as the service, so it refuses to overlap a run started from
 the UI, and the service's scheduler refuses to overlap it. Its run is recorded and shows in
 the UI like any other. Exit codes: 1 when the run did not complete cleanly, 2 for a
-configuration problem, 3 when the service cannot start (the port is taken).
+configuration problem, 3 when the service cannot start (the port is taken, or `/config` or
+the runtime directory cannot be written).
 
 ## Backing up the backup tool
 

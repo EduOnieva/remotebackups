@@ -49,8 +49,16 @@ as its own entry: write `--exclude=cache/` rather than `["--exclude", "cache/"]`
 Something else in the container's network namespace already uses the port, typically with
 the Tailscale sidecar. `WEB_PORT` selects another one; the healthcheck follows it.
 
+**`Cannot start: cannot write /config (Read-only file system)`** (exit 3)
+The container is read-only (`read_only: true` in the compose files) and `/config` is not a
+mounted folder. When the message names `/run/remotebackups` instead, the runtime tmpfs is
+missing. Add the `volumes:` or the `tmpfs:` line from the compose files.
+
 **`/config is not a mounted volume; configuration and history will be lost with the container`**
-A warning at startup: `/config` is in the container's own filesystem. Add the volume.
+A warning at startup: `/config` is in the container's own filesystem. Add the volume. Up to
+2.6 the image declared `/config` as a volume, so Docker put a forgotten mount in an anonymous
+volume and this warning could not appear; `docker cp remotebackups:/config ./config` on the
+old container copies that configuration out.
 
 **`No config.yaml found; wrote a commented example`**
 Normal on the first start. Add `folders:` to the file; no restart needed.
