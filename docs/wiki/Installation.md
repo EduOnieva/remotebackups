@@ -151,7 +151,7 @@ is not the case. The two capabilities are what root keeps.
 | Tag | Follows |
 |---|---|
 | `latest` | the `main` branch, which moves at releases |
-| `2.8` | that release; `2` is the newest `2.x` |
+| `2.9` | that release; `2` is the newest `2.x` |
 | `develop` | the `develop` branch, where changes land first |
 
 Published on Docker Hub (`eduonieva/remotebackups`) and GHCR (`ghcr.io/eduonieva/remotebackups`)
