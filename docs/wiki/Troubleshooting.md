@@ -211,8 +211,10 @@ state volume holds an identity the key is no longer needed.
 
 ## rsync exit codes
 
-As the run's folder table explains them. Negative codes mean rsync was killed by that
-signal; `-15` is SIGTERM from Stop.
+As the run's folder table explains them. A folder interrupted by Stop ends with 255 (its ssh
+went first) or 20 (rsync's own code for being signalled), and is marked *cancelled*, not
+failed. A negative code means the process itself was killed by that signal: `-9` is the
+SIGKILL sent when rsync has not gone ten seconds after Stop.
 
 | Code | Meaning |
 |---|---|

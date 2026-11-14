@@ -94,8 +94,8 @@ def make_run(started: datetime, trigger: RunTrigger, *, delete=False, dry_run=Fa
         if name == cancel_at:
             duration = timedelta(seconds=random.uniform(40, 90))
             t2 = t + duration
-            log.append(f"{t2:%Y-%m-%d %H:%M:%S} [WARN] Folder {name}: interrupted by stop (user); rsync exit -15")
-            res.status, res.exit_code, res.message = FolderStatus.CANCELLED, -15, "interrupted by stop (user); rsync exit -15"
+            log.append(f"{t2:%Y-%m-%d %H:%M:%S} [WARN] Folder {name}: interrupted by stop (user); rsync exit 255")
+            res.status, res.exit_code, res.message = FolderStatus.CANCELLED, 255, "interrupted by stop (user); rsync exit 255"
             res.finished_at = t2; cancelled = True; t = t2; results.append(res); continue
         t2 = t + duration
         res.exit_code = exit_code

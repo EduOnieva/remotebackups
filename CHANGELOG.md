@@ -7,6 +7,9 @@
 - Dependabot also reads the compose files of the test and demo stacks, whose `alpine` image the `docker` ecosystem did not see.
 - `main` cannot be force-pushed or deleted and a `v*` tag cannot be moved or deleted (repository rulesets); a workflow that states no permissions gets a read-only token.
 
+### Fixed
+- The Troubleshooting page said a folder interrupted by Stop ends with rsync exit `-15`. It ends with 255 or 20; a negative code only appears when the process itself is killed, such as `-9` after the grace period.
+
 ## 2.7 - 2026-11-14
 
 ### Changed
