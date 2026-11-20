@@ -1,6 +1,6 @@
 # The integration test runner: the project's dev dependencies, no project install.
 # uv is a stage so that Dependabot, which reads FROM lines, moves it with the main Dockerfile's
-FROM astral/uv:0.13.6 AS uv
+FROM astral/uv:0.13.7 AS uv
 FROM python:3.13.18-alpine3.24
 COPY --from=uv /uv /bin/uv
 ENV UV_LINK_MODE=copy UV_PROJECT_ENVIRONMENT=/opt/venv PATH=/opt/venv/bin:$PATH

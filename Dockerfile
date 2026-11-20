@@ -7,7 +7,7 @@
 # are stages so that Dependabot, which reads FROM lines, keeps tag and digest current.
 # uv from Docker Hub, not ghcr.io: same image, but Dependabot's cooldown needs a publication
 # date and only finds one there
-FROM astral/uv:0.13.6@sha256:af22a52f5eafef3d78e551599d405c02df61919d18028f0cea8eda93bc9986d0 AS uv
+FROM astral/uv:0.13.7@sha256:96f40d3904aad8d0bd010539001d36c8e2188b981e1334471a90c4a1d93bb490 AS uv
 FROM python:3.13.18-alpine3.24@sha256:9ef1a599f863231c3d91e941389bfdc4a2d6070557243d54df1a4e57015b960e AS base
 
 FROM base AS builder
